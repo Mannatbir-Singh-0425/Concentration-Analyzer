@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: concentration_analyzer
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - SECRET_KEY=production_quantlab_secret_key_change_in_production
+      - DATABASE_PATH=/data/database.db
+      - MODEL_DIR=/data/model
+    volumes:
+      - analyzer_data:/data
+
+volumes:
+  analyzer_data:

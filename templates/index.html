@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concentration Analyzer // Simple & Multi-Category</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <meta name="theme-color" content="#0a0d14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QuantLab">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon-box">
+                    <i data-lucide="flask-conical"></i>
+                </div>
+                <div>
+                    <h1 class="brand-name">Concentration Analyzer</h1>
+                    <p class="brand-subtitle">Simple Photographic Assay Predictor</p>
+                </div>
+            </div>
+
+            <!-- Global Category & User Actions Bar -->
+            <div class="header-right-actions">
+                <!-- Install App Button (PWA) -->
+                <button id="btn-install-pwa" class="btn btn-install-app btn-sm hidden" title="Install App on Phone or Desktop">
+                    <i data-lucide="smartphone"></i>
+                    <span>Install App</span>
+                </button>
+
+                <div class="header-category-bar">
+                    <div class="category-select-wrapper">
+                        <span class="cat-label">SUBSTANCE:</span>
+                        <select id="global-category-select" class="category-dropdown">
+                            <!-- Loaded dynamically -->
+                        </select>
+                    </div>
+                    <button id="btn-show-new-cat" class="btn btn-outline btn-sm">
+                        <i data-lucide="plus"></i> New Category
+                    </button>
+                </div>
+
+                <!-- User Profile & Log Out -->
+                <div class="header-user-section">
+                    <div class="user-badge" title="Logged in user">
+                        <i data-lucide="user-check"></i>
+                        <span id="header-username">Loading...</span>
+                    </div>
+                    <button id="btn-logout" class="btn btn-logout btn-sm" title="Log out">
+                        <i data-lucide="log-out"></i>
+                        <span>Log Out</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- New Category Creation Modal -->
+        <div id="new-cat-modal" class="modal-overlay hidden">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>Create New Substance Category</h3>
+                    <button id="btn-close-modal" class="btn-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-hint">Choose whatever substance or chemical you want to measure (e.g. Milk Fat, Coffee Strength, Chlorine, Copper, Soil Nitrate).</p>
+                    <div class="form-group">
+                        <label for="new-cat-name">Category Name</label>
+                        <input type="text" id="new-cat-name" class="form-input" placeholder="e.g. Pool Chlorine or Milk Protein" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-cat-unit">Measurement Unit</label>
+                        <input type="text" id="new-cat-unit" class="form-input" placeholder="e.g. mg/L, ppm, %, µg/mL" value="mg/L" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-cancel-cat" class="btn btn-ghost">Cancel</button>
+                    <button id="btn-save-new-cat" class="btn btn-primary">Create Category</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3 Primary Navigation Places -->
+        <nav class="main-tabs">
+            <button class="tab-button active" data-tab="place-train">
+                <span class="step-num">1</span>
+                <div class="tab-info">
+                    <strong>Train Model</strong>
+                    <span>Upload samples & train</span>
+                </div>
+            </button>
+            <button class="tab-button" data-tab="place-samples">
+                <span class="step-num">2</span>
+                <div class="tab-info">
+                    <strong>Training Samples</strong>
+                    <span>View & manage samples</span>
+                </div>
+            </button>
+            <button class="tab-button" data-tab="place-predict">
+                <span class="step-num">3</span>
+                <div class="tab-info">
+                    <strong>Predict Unknown</strong>
+                    <span>Test an unknown photo</span>
+                </div>
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content-body">
+
+            <!-- =========================================================
+                 PLACE 1: TRAIN MODEL
+                 ========================================================= -->
+            <section id="place-train" class="tab-section active">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>Step 1: Upload Reference Samples & Train Model</h2>
+                            <p class="card-desc">Upload 2 or more photos of known concentrations (for example, 0 for clear water, and standard numbers like 10, 50, 100). The model learns how color corresponds to concentration.</p>
+                        </div>
+                    </div>
+
+                    <form id="train-form" class="train-form">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="train-category-input">Substance Category</label>
+                                <input type="text" id="train-category-input" class="form-input" placeholder="Select or type category..." required>
+                            </div>
+                            <div class="form-group width-160">
+                                <label for="train-unit-input">Unit</label>
+                                <input type="text" id="train-unit-input" class="form-input" placeholder="mg/L" value="mg/L" required>
+                            </div>
+                        </div>
+
+                        <!-- Sample Upload List -->
+                        <div class="samples-upload-area">
+                            <div class="area-header">
+                                <h3>Reference Photos & Concentrations</h3>
+                                <button type="button" id="btn-add-sample-row" class="btn btn-outline btn-sm">
+                                    <i data-lucide="plus-circle"></i> Add Sample
+                                </button>
+                            </div>
+
+                            <div class="sample-rows-container" id="sample-rows-container">
+                                <!-- Sample rows dynamically added here -->
+                            </div>
+                        </div>
+
+                        <div class="card-footer">
+                            <button type="submit" id="btn-train-model" class="btn btn-primary btn-lg">
+                                <i data-lucide="sparkles"></i> Train Model for this Category
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Training Result Alert -->
+                    <div id="train-result-box" class="alert-box success hidden">
+                        <i data-lucide="check-circle" class="alert-icon"></i>
+                        <div class="alert-content">
+                            <strong id="train-result-title">Model Trained Successfully!</strong>
+                            <p id="train-result-msg">Ready to predict unknown substances.</p>
+                        </div>
+                        <button type="button" id="btn-go-to-predict" class="btn btn-sm btn-outline">
+                            Go to Predict &rarr;
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- =========================================================
+                 PLACE 2: VIEW TRAINING SAMPLES & CALIBRATION CURVE
+                 ========================================================= -->
+            <section id="place-samples" class="tab-section">
+                <div class="card">
+                    <!-- Top Category Bar -->
+                    <div class="card-header space-between">
+                        <div>
+                            <h2>Step 2: Reference Samples & Calibration Curve</h2>
+                            <p class="card-desc">Review your reference standard photos, verify the concentration values, and inspect the calibration curve.</p>
+                        </div>
+                        <div class="category-filter-box">
+                            <label for="samples-cat-filter">Category:</label>
+                            <select id="samples-cat-filter" class="form-select">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Clean 2-Column Dashboard Layout -->
+                    <div class="place2-dashboard" id="place2-dashboard">
+                        <!-- Left Column: Standard Samples Ordered List -->
+                        <div class="place2-samples-col">
+                            <div class="subcard">
+                                <div class="subcard-header">
+                                    <div class="subcard-title">
+                                        <i data-lucide="list-ordered"></i>
+                                        <span>Reference Standards (Lowest to Highest)</span>
+                                    </div>
+                                    <span class="badge-pill" id="samples-count-badge">0 Samples</span>
+                                </div>
+
+                                <div class="samples-list-wrap">
+                                    <table class="organized-table" id="samples-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Rank</th>
+                                                <th>Photo</th>
+                                                <th>Concentration</th>
+                                                <th>Color Value</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="samples-table-body">
+                                            <!-- Rows populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="subcard-footer">
+                                    <button type="button" class="btn btn-outline btn-sm full-width" onclick="switchTab('place-train')">
+                                        <i data-lucide="plus"></i> Add More Reference Standards
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Calibration Curve & Stats -->
+                        <div class="place2-graph-col">
+                            <div class="subcard">
+                                <div class="subcard-header">
+                                    <div class="subcard-title">
+                                        <i data-lucide="trending-up"></i>
+                                        <span>Concentration vs Optical Value Curve</span>
+                                    </div>
+                                    <span class="badge-pill green" id="sp-r2-badge">R² 0.998</span>
+                                </div>
+
+                                <!-- Key Stats Row -->
+                                <div class="graph-metrics-grid">
+                                    <div class="g-metric-card">
+                                        <span class="gm-label">LOWEST STANDARD</span>
+                                        <span class="gm-val text-green" id="sp-lowest">--</span>
+                                    </div>
+                                    <div class="g-metric-card">
+                                        <span class="gm-label">HIGHEST STANDARD</span>
+                                        <span class="gm-val text-red" id="sp-highest">--</span>
+                                    </div>
+                                    <div class="g-metric-card">
+                                        <span class="gm-label">CALIBRATED RANGE</span>
+                                        <span class="gm-val text-cyan" id="sp-range">--</span>
+                                    </div>
+                                </div>
+
+                                <!-- Interactive Plotly Graph -->
+                                <div id="category-plotly-graph" class="category-plotly-graph"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State (When no samples exist) -->
+                    <div id="samples-empty-state" class="empty-state hidden">
+                        <i data-lucide="image-off" class="empty-icon"></i>
+                        <h3>No Training Samples for this Category</h3>
+                        <p>Upload photos of known concentrations to train the model for this substance.</p>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('place-train')">
+                            Upload Reference Samples Now
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- =========================================================
+                 PLACE 3: PREDICT UNKNOWN CONCENTRATION
+                 ========================================================= -->
+            <section id="place-predict" class="tab-section">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>Step 3: Measure Unknown Substance Concentration</h2>
+                            <p class="card-desc">Select the substance category, upload or take a picture of your unknown sample, and get the predicted concentration instantly.</p>
+                        </div>
+                    </div>
+
+                    <div class="predict-layout">
+                        <!-- Left: Upload / Camera Input -->
+                        <div class="predict-input-col">
+                            <div class="form-group">
+                                <label for="predict-category-select">Select Substance Category</label>
+                                <select id="predict-category-select" class="form-select form-select-lg">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="predict-label-input">Sample Name / Identifier (Optional)</label>
+                                <input type="text" id="predict-label-input" class="form-input" placeholder="e.g. Test Tube #3 or River Water" value="Unknown Sample">
+                            </div>
+
+                            <!-- Input Method Toggle (Upload vs Camera) -->
+                            <div class="input-method-toggle">
+                                <button type="button" id="btn-mode-upload" class="toggle-btn active">
+                                    <i data-lucide="upload"></i> Upload File
+                                </button>
+                                <button type="button" id="btn-mode-camera" class="toggle-btn">
+                                    <i data-lucide="camera"></i> Take Picture with Camera
+                                </button>
+                            </div>
+
+                            <div class="upload-dropzone" id="predict-dropzone">
+                                <div id="dropzone-prompt">
+                                    <i data-lucide="upload-cloud" class="dropzone-icon"></i>
+                                    <strong>Click or Drop Unknown Photo Here</strong>
+                                    <span>Supports JPG, PNG, WEBP</span>
+                                    <input type="file" id="predict-file-input" accept="image/*" class="file-hidden">
+                                </div>
+                                <div id="dropzone-preview" class="hidden">
+                                    <img id="predict-preview-img" src="" alt="Unknown Preview">
+                                    <button type="button" id="btn-remove-preview" class="btn-remove-preview">&times;</button>
+                                </div>
+                            </div>
+
+                            <button type="button" id="btn-predict-now" class="btn btn-primary btn-lg full-width">
+                                <i data-lucide="play"></i> Predict Concentration
+                            </button>
+                        </div>
+
+                        <!-- Right: Big Clear Prediction Output Display -->
+                        <div class="predict-output-col">
+                            <div class="result-card" id="result-card">
+                                <span class="result-kicker">PREDICTED CONCENTRATION</span>
+                                <div class="result-number-wrap">
+                                    <span class="result-number" id="res-concentration">---</span>
+                                    <span class="result-unit" id="res-unit">mg/L</span>
+                                </div>
+
+                                <div class="result-status-badge" id="res-status-badge">
+                                    Ready for Sample
+                                </div>
+
+                                <div class="result-color-row">
+                                    <div class="result-color-circle" id="res-color-circle" style="background-color: #64748b;"></div>
+                                    <div class="result-color-text">
+                                        <span class="res-color-hex" id="res-color-hex">#64748b</span>
+                                        <span class="res-color-sub">Detected Sample Color</span>
+                                    </div>
+                                </div>
+
+                                <div class="result-explanation-box">
+                                    <i data-lucide="info" class="explanation-icon"></i>
+                                    <p id="res-explanation">Upload an unknown sample photo and click "Predict Concentration" to see the measurement.</p>
+                                </div>
+
+                                <div class="calibrated-range-info">
+                                    <span>Category Calibrated Range: </span>
+                                    <strong id="res-calibrated-range">--</strong>
+                                </div>
+
+                                <!-- Projected Sample Graph -->
+                                <div id="predict-plotly-box" class="predict-plotly-box hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Predictions Table -->
+                <div class="card mt-24">
+                    <div class="card-header">
+                        <h3>Recent Predictions</h3>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="simple-table" id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Category</th>
+                                    <th>Sample Name</th>
+                                    <th>Color</th>
+                                    <th>Concentration</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    <!-- Universal Live Camera Modal -->
+    <div id="camera-modal" class="modal-overlay hidden">
+        <div class="modal-box camera-modal-box">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <i data-lucide="camera" class="modal-icon"></i>
+                    <h3 id="camera-modal-title">Capture Sample Photo</h3>
+                </div>
+                <button id="btn-close-camera" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body camera-modal-body">
+                <div class="camera-viewport">
+                    <video id="camera-stream-video" autoplay playsinline></video>
+                    <canvas id="camera-capture-canvas" class="hidden"></canvas>
+                    <div class="camera-reticle-overlay">
+                        <div class="camera-reticle-frame"></div>
+                        <span class="reticle-hint">Center Sample / Test Strip in Box</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer camera-modal-footer">
+                <button id="btn-flip-camera" class="btn btn-outline btn-sm">
+                    <i data-lucide="refresh-cw"></i> Flip Camera
+                </button>
+                <button id="btn-snap-camera-photo" class="btn btn-primary btn-lg">
+                    <i data-lucide="aperture"></i> Snap Photo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

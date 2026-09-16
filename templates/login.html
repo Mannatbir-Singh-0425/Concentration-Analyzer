@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In // Concentration Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#0a0d14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QuantLab">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body">
+    <div class="login-wrapper">
+        <!-- Floating Ambient Glows -->
+        <div class="ambient-glow glow-1"></div>
+        <div class="ambient-glow glow-2"></div>
+
+        <div class="auth-card">
+            <!-- Brand Header -->
+            <div class="auth-brand">
+                <div class="brand-icon-box large">
+                    <i data-lucide="flask-conical"></i>
+                </div>
+                <h1 class="auth-title">Concentration Analyzer</h1>
+                <p class="auth-subtitle">Photographic Assay & Concentration Predictor</p>
+            </div>
+
+            <!-- Tab Switcher: Sign In vs Create Account -->
+            <div class="auth-tabs">
+                <button id="tab-signin" class="auth-tab-btn active" type="button">
+                    <i data-lucide="log-in"></i> Sign In
+                </button>
+                <button id="tab-register" class="auth-tab-btn" type="button">
+                    <i data-lucide="user-plus"></i> Create Account
+                </button>
+            </div>
+
+            <!-- Alert Box for Error / Success Messages -->
+            <div id="auth-alert" class="auth-alert hidden">
+                <i data-lucide="alert-circle" id="alert-icon"></i>
+                <span id="alert-message">Error message here</span>
+            </div>
+
+            <!-- Auth Form -->
+            <form id="auth-form" autocomplete="off">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-with-icon">
+                        <i data-lucide="user" class="input-icon"></i>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            class="form-input auth-input" 
+                            placeholder="Enter your username" 
+                            required 
+                            autofocus 
+                            autocomplete="username"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="password" class="form-label">Password</label>
+                    </div>
+                    <div class="input-with-icon">
+                        <i data-lucide="lock" class="input-icon"></i>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            class="form-input auth-input" 
+                            placeholder="Enter your password" 
+                            required 
+                            autocomplete="current-password"
+                        >
+                        <button type="button" id="btn-toggle-password" class="input-action-btn" title="Show/Hide Password">
+                            <i data-lucide="eye" id="toggle-password-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-submit" class="btn btn-primary auth-submit-btn">
+                    <span id="submit-text">Sign In</span>
+                    <i data-lucide="arrow-right" id="submit-icon"></i>
+                </button>
+            </form>
+
+            <!-- 1-Click Quick Demo Login Section -->
+            <div class="demo-login-box">
+                <div class="demo-divider">
+                    <span>OR USE DEMO ACCOUNT</span>
+                </div>
+                <p class="demo-desc">Want to test right away without creating an account? Use the pre-seeded demo user with calibrated standards:</p>
+                <button type="button" id="btn-demo-login" class="btn btn-demo">
+                    <i data-lucide="zap"></i>
+                    <span>⚡ 1-Click Demo Login (demo / demo123)</span>
+                </button>
+            </div>
+
+            <!-- Privacy Note -->
+            <div class="auth-footer-note">
+                <i data-lucide="shield-check"></i>
+                <span>All training samples, calibration curves, and predictions are strictly isolated to your user account.</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let currentMode = 'login'; // 'login' or 'register'
+
+        const tabSignin = document.getElementById('tab-signin');
+        const tabRegister = document.getElementById('tab-register');
+        const authForm = document.getElementById('auth-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const submitBtn = document.getElementById('btn-submit');
+        const submitText = document.getElementById('submit-text');
+        const authAlert = document.getElementById('auth-alert');
+        const alertMessage = document.getElementById('alert-message');
+        const demoBtn = document.getElementById('btn-demo-login');
+        const togglePasswordBtn = document.getElementById('btn-toggle-password');
+        const togglePasswordIcon = document.getElementById('toggle-password-icon');
+
+        function setMode(mode) {
+            currentMode = mode;
+            hideAlert();
+            if (mode === 'login') {
+                tabSignin.classList.add('active');
+                tabRegister.classList.remove('active');
+                submitText.textContent = 'Sign In';
+                document.title = 'Sign In // Concentration Analyzer';
+            } else {
+                tabRegister.classList.add('active');
+                tabSignin.classList.remove('active');
+                submitText.textContent = 'Create Account & Enter';
+                document.title = 'Create Account // Concentration Analyzer';
+            }
+            lucide.createIcons();
+            usernameInput.focus();
+        }
+
+        tabSignin.addEventListener('click', () => setMode('login'));
+        tabRegister.addEventListener('click', () => setMode('register'));
+
+        // Toggle password visibility
+        togglePasswordBtn.addEventListener('click', () => {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                togglePasswordIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                passwordInput.type = 'password';
+                togglePasswordIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        });
+
+        function showAlert(msg, isSuccess = false) {
+            authAlert.className = `auth-alert ${isSuccess ? 'success' : 'error'}`;
+            alertMessage.textContent = msg;
+            authAlert.classList.remove('hidden');
+            const iconEl = document.getElementById('alert-icon');
+            if (iconEl) {
+                iconEl.setAttribute('data-lucide', isSuccess ? 'check-circle-2' : 'alert-circle');
+                lucide.createIcons();
+            }
+        }
+
+        function hideAlert() {
+            authAlert.classList.add('hidden');
+        }
+
+        async function submitAuth(username, password, endpoint) {
+            hideAlert();
+            submitBtn.disabled = true;
+            const originalText = submitText.textContent;
+            submitText.textContent = 'Authenticating...';
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Authentication failed. Please try again.');
+                    submitBtn.disabled = false;
+                    submitText.textContent = originalText;
+                    return;
+                }
+
+                showAlert(data.message || 'Success! Loading analyzer...', true);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 400);
+
+            } catch (err) {
+                showAlert('Network error: Unable to reach server. Please try again.');
+                submitBtn.disabled = false;
+                submitText.textContent = originalText;
+            }
+        }
+
+        // Handle regular form submit
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!username || !password) {
+                showAlert('Please enter both username and password.');
+                return;
+            }
+
+            const endpoint = currentMode === 'login' ? '/api/login' : '/api/register';
+            await submitAuth(username, password, endpoint);
+        });
+
+        // 1-Click Demo Login
+        demoBtn.addEventListener('click', async () => {
+            usernameInput.value = 'demo';
+            passwordInput.value = 'demo123';
+            await submitAuth('demo', 'demo123', '/api/login');
+        });
+    </script>
+</body>
+</html>

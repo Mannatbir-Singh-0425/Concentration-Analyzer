@@ -1,0 +1,1009 @@
+/**
+ * Concentration Analyzer - Clean & Intuitive 3-Place Controller
+ * With full Camera Capture & File Upload support for all sample types!
+ * 1. Train Model (Upload reference samples or Take Photos & train)
+ * 2. Training Samples (View & delete samples)
+ * 3. Predict Unknown (Upload photo or Take Photo & see instant concentration)
+ */
+
+let categories = [];
+let currentCategory = "Protein Test";
+let sampleRowCounter = 0;
+let unknownImageFile = null; // Can be a File object or base64 DataURL
+
+// Camera State
+let cameraStream = null;
+let cameraFacingMode = 'environment';
+let activeCameraTarget = null; // 'unknown' or row index number
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (window.lucide) window.lucide.createIcons();
+    
+    // Check if user is authenticated
+    const authed = await checkAuthStatus();
+    if (!authed) return;
+
+    setupAuthControls();
+    setupPwaInstall();
+    setupTabs();
+    setupModals();
+    setupCameraControls();
+    setupPredictDropzone();
+    setupTrainForm();
+    await loadCategories();
+    await loadHistory();
+});
+
+// =====================================================================
+// PWA & SERVICE WORKER CONTROLS
+// =====================================================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+            .catch(err => console.warn('[PWA] Service Worker registration warning:', err));
+    });
+}
+
+let deferredPrompt = null;
+function setupPwaInstall() {
+    const installBtn = document.getElementById('btn-install-pwa');
+    if (!installBtn) return;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.classList.remove('hidden');
+    });
+
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+            alert("To install this app on your phone:\n- Android Chrome: Tap '...' then 'Install app'\n- iPhone Safari: Tap 'Share' then 'Add to Home Screen'");
+            return;
+        }
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('[PWA] User choice:', outcome);
+        deferredPrompt = null;
+        installBtn.classList.add('hidden');
+    });
+
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] App installed successfully');
+        installBtn.classList.add('hidden');
+    });
+}
+
+// =====================================================================
+// AUTHENTICATION CONTROLS
+// =====================================================================
+async function checkAuthStatus() {
+    try {
+        const res = await fetch('/api/me');
+        if (!res.ok) {
+            window.location.href = '/login';
+            return false;
+        }
+        const data = await res.json();
+        const userEl = document.getElementById('header-username');
+        if (userEl && data.user) {
+            userEl.textContent = data.user.username;
+        }
+        return true;
+    } catch (e) {
+        console.error("Auth check failed:", e);
+        window.location.href = '/login';
+        return false;
+    }
+}
+
+function setupAuthControls() {
+    const logoutBtn = document.getElementById('btn-logout');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (e) {
+                console.error("Logout error:", e);
+            }
+            window.location.href = '/login';
+        });
+    }
+}
+
+// =====================================================================
+// TABS SETUP
+// =====================================================================
+function setupTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.getAttribute('data-tab');
+            switchTab(target);
+        });
+    });
+}
+
+function switchTab(targetId) {
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+
+    const btn = document.querySelector(`[data-tab="${targetId}"]`);
+    const section = document.getElementById(targetId);
+
+    if (btn) btn.classList.add('active');
+    if (section) section.classList.add('active');
+
+    // If switching to Place 2 (Samples), refresh gallery
+    if (targetId === 'place-samples') {
+        loadCategorySamples(currentCategory);
+    }
+}
+
+// =====================================================================
+// CAMERA CONTROLS (TAKE PICTURE MODAL)
+// =====================================================================
+function setupCameraControls() {
+    const btnClose = document.getElementById('btn-close-camera');
+    const btnFlip = document.getElementById('btn-flip-camera');
+    const btnSnap = document.getElementById('btn-snap-camera-photo');
+
+    if (btnClose) btnClose.onclick = closeCameraModal;
+    if (btnFlip) btnFlip.onclick = flipCamera;
+    if (btnSnap) btnSnap.onclick = snapCameraPhoto;
+}
+
+async function openCameraModal(target, title = 'Capture Sample Photo') {
+    activeCameraTarget = target;
+    const titleEl = document.getElementById('camera-modal-title');
+    if (titleEl) titleEl.textContent = title;
+
+    const modal = document.getElementById('camera-modal');
+    modal.classList.remove('hidden');
+
+    await startCameraStream();
+}
+
+async function startCameraStream() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+
+    const video = document.getElementById('camera-stream-video');
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: cameraFacingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+        video.srcObject = cameraStream;
+    } catch (err) {
+        console.warn("Environmental camera not available, falling back to default:", err);
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = cameraStream;
+        } catch (e2) {
+            console.error("Camera access failed:", e2);
+            alert("Camera access was denied or is unavailable on this device. Please check permissions.");
+            closeCameraModal();
+        }
+    }
+}
+
+function closeCameraModal() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    const modal = document.getElementById('camera-modal');
+    if (modal) modal.classList.add('hidden');
+    activeCameraTarget = null;
+}
+
+function flipCamera() {
+    cameraFacingMode = (cameraFacingMode === 'environment') ? 'user' : 'environment';
+    startCameraStream();
+}
+
+function snapCameraPhoto() {
+    const video = document.getElementById('camera-stream-video');
+    const canvas = document.getElementById('camera-capture-canvas');
+    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+    if (activeCameraTarget === 'unknown') {
+        // Target: Unknown sample in Place 3
+        unknownImageFile = dataUrl;
+        const previewImg = document.getElementById('predict-preview-img');
+        previewImg.src = dataUrl;
+        document.getElementById('dropzone-prompt').classList.add('hidden');
+        document.getElementById('dropzone-preview').classList.remove('hidden');
+    } else if (activeCameraTarget !== null) {
+        // Target: Sample row in Place 1
+        const rowId = activeCameraTarget;
+        const thumbWrap = document.getElementById(`thumb-wrap-${rowId}`);
+        if (thumbWrap) {
+            thumbWrap.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;" alt="Sample">`;
+        }
+        const rowCard = document.getElementById(`sample-row-${rowId}`);
+        if (rowCard) {
+            rowCard.dataset.cameraImage = dataUrl;
+            const btnCam = rowCard.querySelector('.btn-row-camera');
+            if (btnCam) {
+                btnCam.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;"></i> Photo Snapped`;
+                btnCam.style.borderColor = 'var(--accent-green)';
+                btnCam.style.color = 'var(--accent-green)';
+            }
+        }
+    }
+
+    closeCameraModal();
+    if (window.lucide) window.lucide.createIcons();
+}
+
+// =====================================================================
+// CATEGORY MANAGEMENT
+// =====================================================================
+async function loadCategories() {
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        categories = data.categories || [];
+
+        populateCategoryDropdowns();
+    } catch (err) {
+        console.error("Error loading categories:", err);
+    }
+}
+
+function populateCategoryDropdowns() {
+    const globalSelect = document.getElementById('global-category-select');
+    const filterSelect = document.getElementById('samples-cat-filter');
+    const predictSelect = document.getElementById('predict-category-select');
+    const trainCatInput = document.getElementById('train-category-input');
+    const trainUnitInput = document.getElementById('train-unit-input');
+
+    globalSelect.innerHTML = '';
+    filterSelect.innerHTML = '';
+    predictSelect.innerHTML = '';
+
+    categories.forEach(cat => {
+        const opt1 = document.createElement('option');
+        opt1.value = cat.name;
+        opt1.textContent = `${cat.name} (${cat.unit})`;
+        globalSelect.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = cat.name;
+        opt2.textContent = `${cat.name} (${cat.sample_count} samples)`;
+        filterSelect.appendChild(opt2);
+
+        const opt3 = document.createElement('option');
+        opt3.value = cat.name;
+        opt3.textContent = `${cat.name} (${cat.unit})`;
+        predictSelect.appendChild(opt3);
+    });
+
+    if (categories.length > 0) {
+        const active = categories.find(c => c.name === currentCategory) || categories[0];
+        currentCategory = active.name;
+
+        globalSelect.value = currentCategory;
+        filterSelect.value = currentCategory;
+        predictSelect.value = currentCategory;
+
+        trainCatInput.value = currentCategory;
+        trainUnitInput.value = active.unit;
+    }
+
+    // Global category change
+    globalSelect.onchange = () => onCategoryChanged(globalSelect.value);
+    filterSelect.onchange = () => onCategoryChanged(filterSelect.value);
+    predictSelect.onchange = () => onCategoryChanged(predictSelect.value);
+}
+
+function onCategoryChanged(catName) {
+    currentCategory = catName;
+    document.getElementById('global-category-select').value = catName;
+    document.getElementById('samples-cat-filter').value = catName;
+    document.getElementById('predict-category-select').value = catName;
+
+    const cat = categories.find(c => c.name === catName);
+    if (cat) {
+        document.getElementById('train-category-input').value = cat.name;
+        document.getElementById('train-unit-input').value = cat.unit;
+    }
+
+    loadCategorySamples(catName);
+}
+
+// Modal Setup for New Category
+function setupModals() {
+    const modal = document.getElementById('new-cat-modal');
+    document.getElementById('btn-show-new-cat').onclick = () => modal.classList.remove('hidden');
+    document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
+    document.getElementById('btn-cancel-cat').onclick = () => modal.classList.add('hidden');
+
+    document.getElementById('btn-save-new-cat').onclick = async () => {
+        const name = document.getElementById('new-cat-name').value.trim();
+        const unit = document.getElementById('new-cat-unit').value.trim() || 'mg/L';
+
+        if (!name) {
+            alert("Please enter a category name.");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, unit })
+            });
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            modal.classList.add('hidden');
+            document.getElementById('new-cat-name').value = '';
+            await loadCategories();
+            onCategoryChanged(name);
+            switchTab('place-train');
+        } catch (err) {
+            console.error("Create category error:", err);
+        }
+    };
+}
+
+// =====================================================================
+// PLACE 1: TRAIN MODEL
+// =====================================================================
+function setupTrainForm() {
+    const container = document.getElementById('sample-rows-container');
+    const btnAdd = document.getElementById('btn-add-sample-row');
+    const form = document.getElementById('train-form');
+
+    // Add 3 default sample rows
+    addSampleInputRow(0, "Blank / Zero");
+    addSampleInputRow(20, "Low Standard");
+    addSampleInputRow(100, "High Standard");
+
+    btnAdd.onclick = () => addSampleInputRow('', '');
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+
+        const btnTrain = document.getElementById('btn-train-model');
+        btnTrain.disabled = true;
+        btnTrain.innerHTML = `<span class="spinner"></span> Training Model...`;
+
+        const formData = new FormData();
+        formData.append('category_name', document.getElementById('train-category-input').value.trim());
+        formData.append('unit', document.getElementById('train-unit-input').value.trim());
+
+        const rowEls = document.querySelectorAll('.sample-input-card');
+        let validRows = 0;
+
+        rowEls.forEach(row => {
+            const fileInput = row.querySelector('.sample-file-input');
+            const concInput = row.querySelector('.sample-conc-input');
+            const labelInput = row.querySelector('.sample-label-input');
+            const cameraB64 = row.dataset.cameraImage;
+
+            const hasFile = fileInput.files && fileInput.files[0];
+            const hasCamera = Boolean(cameraB64);
+
+            if ((hasFile || hasCamera) && concInput.value !== '') {
+                if (hasFile) {
+                    formData.append('images', fileInput.files[0]);
+                    formData.append('images_base64', '');
+                } else if (hasCamera) {
+                    // Send dummy empty file and the real base64
+                    formData.append('images', new Blob());
+                    formData.append('images_base64', cameraB64);
+                }
+                formData.append('concentrations', concInput.value);
+                formData.append('labels', labelInput.value || `Sample ${concInput.value}`);
+                validRows++;
+            }
+        });
+
+        if (validRows < 2) {
+            alert("Please provide at least 2 sample photos (upload files or take photos) with known concentrations.");
+            btnTrain.disabled = false;
+            btnTrain.innerHTML = `<i data-lucide="sparkles"></i> Train Model for this Category`;
+            if (window.lucide) window.lucide.createIcons();
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/train_category', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            // Show success result alert
+            const alertBox = document.getElementById('train-result-box');
+            document.getElementById('train-result-title').textContent = `Success! Model trained for '${data.category_name}'`;
+            document.getElementById('train-result-msg').textContent = `Trained on ${data.sample_count} samples with model accuracy of ${data.accuracy}.`;
+            alertBox.classList.remove('hidden');
+
+            document.getElementById('btn-go-to-predict').onclick = () => {
+                onCategoryChanged(data.category_name);
+                switchTab('place-predict');
+            };
+
+            await loadCategories();
+        } catch (err) {
+            console.error("Train error:", err);
+            alert("An error occurred during training.");
+        } finally {
+            btnTrain.disabled = false;
+            btnTrain.innerHTML = `<i data-lucide="sparkles"></i> Train Model for this Category`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    };
+}
+
+function addSampleInputRow(conc = '', label = '') {
+    sampleRowCounter++;
+    const container = document.getElementById('sample-rows-container');
+
+    const card = document.createElement('div');
+    card.className = 'sample-input-card';
+    card.id = `sample-row-${sampleRowCounter}`;
+
+    card.innerHTML = `
+        <div class="sample-thumb-preview" id="thumb-wrap-${sampleRowCounter}">No Photo</div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:11px;">Sample Photo (Upload or Snap)</label>
+            <div class="sample-photo-options">
+                <label class="btn-file-label">
+                    <i data-lucide="upload" style="width:12px;height:12px;"></i> Upload
+                    <input type="file" accept="image/*" class="sample-file-input file-hidden">
+                </label>
+                <button type="button" class="btn btn-outline btn-xs btn-row-camera" onclick="openCameraModal(${sampleRowCounter}, 'Take Sample Photo')">
+                    <i data-lucide="camera" style="width:12px;height:12px;"></i> Take Photo
+                </button>
+            </div>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label style="font-size:11px;">Known Concentration</label>
+            <input type="number" step="any" class="form-input sample-conc-input" placeholder="e.g. 0, 10, 50" value="${conc}" required>
+        </div>
+        <div class="form-group" style="margin:0;display:none;">
+            <input type="text" class="form-input sample-label-input" value="${label}">
+        </div>
+        <div>
+            <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent-red);" onclick="document.getElementById('sample-row-${sampleRowCounter}').remove()">
+                <i data-lucide="trash-2"></i>
+            </button>
+        </div>
+    `;
+
+    const fileInput = card.querySelector('.sample-file-input');
+    const thumbWrap = card.querySelector(`#thumb-wrap-${sampleRowCounter}`);
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+                thumbWrap.innerHTML = `<img src="${re.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;" alt="Sample">`;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+            // Clear any old camera data if file chosen
+            delete card.dataset.cameraImage;
+        }
+    });
+
+    container.appendChild(card);
+    if (window.lucide) window.lucide.createIcons();
+}
+
+// =====================================================================
+// PLACE 2: VIEW TRAINING SAMPLES (ORGANIZED DASHBOARD & GRAPH)
+// =====================================================================
+async function loadCategorySamples(catName) {
+    const tableBody = document.getElementById('samples-table-body');
+    const emptyState = document.getElementById('samples-empty-state');
+    const dashboard = document.getElementById('place2-dashboard');
+    const countBadge = document.getElementById('samples-count-badge');
+
+    if (tableBody) tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:24px;">Loading standards...</td></tr>';
+    if (emptyState) emptyState.classList.add('hidden');
+
+    try {
+        const res = await fetch(`/api/category_samples/${encodeURIComponent(catName)}`);
+        const data = await res.json();
+        const samples = data.samples || [];
+
+        if (tableBody) tableBody.innerHTML = '';
+
+        if (samples.length === 0) {
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (dashboard) dashboard.classList.add('hidden');
+            if (countBadge) countBadge.textContent = '0 Samples';
+            return;
+        }
+
+        if (dashboard) dashboard.classList.remove('hidden');
+        if (emptyState) emptyState.classList.add('hidden');
+        if (countBadge) countBadge.textContent = `${samples.length} Standards`;
+
+        // Render Concentration vs Value Graph with Lowest, Highest, Trendline
+        renderCategoryGraph(data);
+
+        // Render Clean Organized Table Rows (Sorted Lowest to Highest)
+        samples.forEach((s, idx) => {
+            const tr = document.createElement('tr');
+            
+            let rankClass = 'mid';
+            let rankText = `#${idx + 1}`;
+            if (idx === 0) {
+                rankClass = 'lowest';
+                rankText = 'LOWEST';
+            } else if (idx === samples.length - 1) {
+                rankClass = 'highest';
+                rankText = 'HIGHEST';
+            }
+
+            tr.innerHTML = `
+                <td><span class="rank-tag ${rankClass}">${rankText}</span></td>
+                <td><img src="${s.image_base64}" class="table-sample-thumb" alt="${s.label}"></td>
+                <td>
+                    <div class="table-conc">${s.concentration} ${data.category.unit || ''}</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">${s.label}</div>
+                </td>
+                <td>
+                    <div class="table-val-row">
+                        <div class="color-dot" style="background-color:${s.hex_color || '#888'};" title="${s.hex_color}"></div>
+                        <span>${s.value || '--'}</span>
+                    </div>
+                </td>
+                <td style="text-align:right;">
+                    <button class="btn btn-ghost btn-xs text-danger" onclick="deleteSample(${s.id})" title="Delete Sample">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+
+        if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+        console.error("Error loading samples:", err);
+        if (tableBody) tableBody.innerHTML = '<tr><td colspan="5" style="color:var(--accent-red);text-align:center;padding:16px;">Failed to load samples.</td></tr>';
+    }
+}
+
+function renderCategoryGraph(data) {
+    const graphDiv = document.getElementById('category-plotly-graph');
+    if (!window.Plotly || !graphDiv) return;
+
+    const samples = data.samples || [];
+    const unit = data.category.unit || '';
+    const r2 = data.category.r2_score || 0.99;
+    const lowest = data.lowest_standard;
+    const highest = data.highest_standard;
+    const trendline = data.trendline || [];
+
+    // Update Stat Cards & Badges
+    const lowestEl = document.getElementById('sp-lowest');
+    const highestEl = document.getElementById('sp-highest');
+    const rangeEl = document.getElementById('sp-range');
+    const countEl = document.getElementById('sp-count');
+    const r2Badge = document.getElementById('sp-r2-badge') || document.getElementById('sp-r2');
+
+    if (lowest && lowestEl) {
+        lowestEl.textContent = `${lowest.concentration} ${unit}`;
+    }
+    if (highest && highestEl) {
+        highestEl.textContent = `${highest.concentration} ${unit}`;
+    }
+    if (lowest && highest && rangeEl) {
+        rangeEl.textContent = `${lowest.concentration} - ${highest.concentration} ${unit}`;
+    }
+    if (countEl) countEl.textContent = `${samples.length} Standards`;
+    if (r2Badge) r2Badge.textContent = `R² ${r2} (${(r2 * 100).toFixed(1)}%)`;
+
+    // Prepare Plotly Traces
+    const traces = [];
+
+    // 1. Fitted Trendline
+    if (trendline.length > 0) {
+        traces.push({
+            x: trendline.map(p => p.x),
+            y: trendline.map(p => p.y),
+            mode: 'lines',
+            name: 'Fitted Curve',
+            line: {
+                color: '#00f2fe',
+                width: 3,
+                shape: 'spline'
+            },
+            hoverinfo: 'none'
+        });
+    }
+
+    // 2. Standard Data Points
+    traces.push({
+        x: samples.map(s => s.concentration),
+        y: samples.map(s => s.value),
+        mode: 'markers+text',
+        name: 'Calibration Standards',
+        text: samples.map(s => `${s.concentration} ${unit}`),
+        textposition: 'top center',
+        textfont: { family: 'Plus Jakarta Sans', size: 11, color: '#e2e8f0' },
+        marker: {
+            size: 11,
+            color: '#10b981',
+            line: { color: '#ffffff', width: 2 }
+        },
+        hovertemplate: '<b>Standard: %{text}</b><br>Concentration: %{x} ' + unit + '<br>Optical Value: %{y}<extra></extra>'
+    });
+
+    // 3. Lowest Standard Marker (Highlight)
+    if (lowest) {
+        traces.push({
+            x: [lowest.concentration],
+            y: [lowest.value],
+            mode: 'markers',
+            name: `Lowest (${lowest.concentration} ${unit})`,
+            marker: {
+                size: 16,
+                color: '#10b981',
+                symbol: 'circle-open',
+                line: { color: '#10b981', width: 3 }
+            },
+            hoverinfo: 'name'
+        });
+    }
+
+    // 4. Highest Standard Marker (Highlight)
+    if (highest) {
+        traces.push({
+            x: [highest.concentration],
+            y: [highest.value],
+            mode: 'markers',
+            name: `Highest (${highest.concentration} ${unit})`,
+            marker: {
+                size: 18,
+                color: '#ef4444',
+                symbol: 'diamond',
+                line: { color: '#ffffff', width: 2 }
+            },
+            hoverinfo: 'name'
+        });
+    }
+
+    const layout = {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: '#0a0d14',
+        margin: { l: 55, r: 25, t: 25, b: 45 },
+        xaxis: {
+            title: { text: `Concentration (${unit})`, font: { family: 'Plus Jakarta Sans', size: 12, color: '#94a3b8' } },
+            gridcolor: 'rgba(255, 255, 255, 0.06)',
+            tickfont: { family: 'JetBrains Mono', color: '#94a3b8' }
+        },
+        yaxis: {
+            title: { text: 'Measured Optical / Color Value (0 - 255)', font: { family: 'Plus Jakarta Sans', size: 12, color: '#94a3b8' } },
+            gridcolor: 'rgba(255, 255, 255, 0.06)',
+            tickfont: { family: 'JetBrains Mono', color: '#94a3b8' }
+        },
+        legend: {
+            orientation: 'h',
+            y: 1.15,
+            x: 0,
+            font: { family: 'Plus Jakarta Sans', size: 11, color: '#cbd5e1' }
+        },
+        hovermode: 'closest',
+        autosize: true
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: false
+    };
+
+    Plotly.newPlot(graphDiv, traces, layout, config);
+}
+
+window.deleteSample = async function(sampleId) {
+    if (!confirm("Are you sure you want to delete this reference sample?")) return;
+
+    try {
+        const res = await fetch(`/api/sample/${sampleId}`, { method: 'DELETE' });
+        const data = await res.json();
+        await loadCategorySamples(currentCategory);
+        await loadCategories();
+    } catch (err) {
+        console.error("Delete sample error:", err);
+    }
+};
+
+// =====================================================================
+// PLACE 3: PREDICT UNKNOWN CONCENTRATION
+// =====================================================================
+function setupPredictDropzone() {
+    const dropzone = document.getElementById('predict-dropzone');
+    const fileInput = document.getElementById('predict-file-input');
+    const prompt = document.getElementById('dropzone-prompt');
+    const preview = document.getElementById('dropzone-preview');
+    const previewImg = document.getElementById('predict-preview-img');
+    const btnRemove = document.getElementById('btn-remove-preview');
+    const btnPredict = document.getElementById('btn-predict-now');
+
+    const btnModeUpload = document.getElementById('btn-mode-upload');
+    const btnModeCamera = document.getElementById('btn-mode-camera');
+
+    // Input mode toggle buttons
+    if (btnModeUpload) {
+        btnModeUpload.onclick = () => {
+            btnModeUpload.classList.add('active');
+            btnModeCamera.classList.remove('active');
+            fileInput.click();
+        };
+    }
+
+    if (btnModeCamera) {
+        btnModeCamera.onclick = () => {
+            btnModeCamera.classList.add('active');
+            btnModeUpload.classList.remove('active');
+            openCameraModal('unknown', 'Take Picture of Unknown Sample');
+        };
+    }
+
+    dropzone.addEventListener('click', (e) => {
+        if (e.target !== btnRemove) fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            setUnknownImage(e.target.files[0]);
+        }
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'var(--primary)';
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            setUnknownImage(e.dataTransfer.files[0]);
+        }
+    });
+
+    btnRemove.addEventListener('click', (e) => {
+        e.stopPropagation();
+        unknownImageFile = null;
+        fileInput.value = '';
+        prompt.classList.remove('hidden');
+        preview.classList.add('hidden');
+    });
+
+    function setUnknownImage(file) {
+        unknownImageFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            prompt.classList.add('hidden');
+            preview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    btnPredict.addEventListener('click', async () => {
+        if (!unknownImageFile) {
+            alert("Please upload or take a picture of your unknown sample first.");
+            return;
+        }
+
+        const catName = document.getElementById('predict-category-select').value;
+        const sampleLabel = document.getElementById('predict-label-input').value.trim() || 'Unknown Sample';
+
+        btnPredict.disabled = true;
+        btnPredict.innerHTML = `<span class="spinner"></span> Analyzing Image...`;
+
+        const formData = new FormData();
+        formData.append('category_name', catName);
+        formData.append('sample_label', sampleLabel);
+
+        if (typeof unknownImageFile === 'string') {
+            formData.append('image_base64', unknownImageFile);
+        } else {
+            formData.append('image', unknownImageFile);
+        }
+
+        try {
+            const res = await fetch('/api/predict_simple', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            // Animate Concentration Result
+            animateNumber(document.getElementById('res-concentration'), 0, data.predicted_concentration, 600);
+            document.getElementById('res-unit').textContent = data.unit;
+
+            // Status Badge
+            const badge = document.getElementById('res-status-badge');
+            badge.textContent = data.range_status;
+            badge.style.color = data.status_color;
+            badge.style.borderColor = data.status_color;
+            badge.style.background = `${data.status_color}22`;
+
+            // Color Display
+            document.getElementById('res-color-circle').style.backgroundColor = data.hex_color;
+            document.getElementById('res-color-hex').textContent = data.hex_color;
+
+            // Explanation & Range
+            document.getElementById('res-explanation').textContent = data.explanation;
+            document.getElementById('res-calibrated-range').textContent = data.calibrated_range;
+
+            // Render projected sample curve on the result card
+            renderPredictionProjectionPlot(data);
+
+            await loadHistory();
+        } catch (err) {
+            console.error("Prediction error:", err);
+            alert("Failed to analyze sample.");
+        } finally {
+            btnPredict.disabled = false;
+            btnPredict.innerHTML = `<i data-lucide="play"></i> Predict Concentration`;
+            if (window.lucide) window.lucide.createIcons();
+        }
+    });
+}
+
+async function renderPredictionProjectionPlot(data) {
+    const box = document.getElementById('predict-plotly-box');
+    if (!window.Plotly || !box) return;
+    box.classList.remove('hidden');
+
+    try {
+        const res = await fetch(`/api/category_samples/${encodeURIComponent(data.category_name)}`);
+        const catData = await res.json();
+        const trendline = catData.trendline || [];
+        const unit = data.unit || '';
+
+        const traces = [];
+
+        // 1. Category Trendline
+        if (trendline.length > 0) {
+            traces.push({
+                x: trendline.map(p => p.x),
+                y: trendline.map(p => p.y),
+                mode: 'lines',
+                name: 'Calibration Curve',
+                line: { color: '#00f2fe', width: 2, shape: 'spline' },
+                hoverinfo: 'none'
+            });
+        }
+
+        // 2. Lowest and Highest Standards
+        if (catData.lowest_standard && catData.highest_standard) {
+            traces.push({
+                x: [catData.lowest_standard.concentration, catData.highest_standard.concentration],
+                y: [catData.lowest_standard.value, catData.highest_standard.value],
+                mode: 'markers+text',
+                name: 'Min / Max Range',
+                text: [`Lowest (${catData.lowest_standard.concentration})`, `Highest (${catData.highest_standard.concentration})`],
+                textposition: 'top center',
+                textfont: { size: 10, color: '#94a3b8' },
+                marker: { size: 9, color: ['#10b981', '#ef4444'] }
+            });
+        }
+
+        // 3. Projected Unknown Sample Pin!
+        traces.push({
+            x: [data.predicted_concentration],
+            y: [data.measured_value],
+            mode: 'markers+text',
+            name: 'Analyzed Unknown',
+            text: [`<b>${data.predicted_concentration} ${unit}</b>`],
+            textposition: 'top center',
+            textfont: { size: 12, color: '#ffffff', family: 'JetBrains Mono' },
+            marker: {
+                size: 16,
+                color: '#ec4899',
+                symbol: 'diamond',
+                line: { color: '#ffffff', width: 2 }
+            },
+            hovertemplate: `<b>${data.sample_label}</b><br>Concentration: %{x} ${unit}<br>Optical Value: %{y}<extra></extra>`
+        });
+
+        const layout = {
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: '#0a0d14',
+            margin: { l: 45, r: 20, t: 25, b: 35 },
+            xaxis: {
+                title: { text: `Concentration (${unit})`, font: { size: 11, color: '#94a3b8' } },
+                gridcolor: 'rgba(255, 255, 255, 0.05)',
+                tickfont: { family: 'JetBrains Mono', color: '#94a3b8' }
+            },
+            yaxis: {
+                title: { text: 'Color Value', font: { size: 11, color: '#94a3b8' } },
+                gridcolor: 'rgba(255, 255, 255, 0.05)',
+                tickfont: { family: 'JetBrains Mono', color: '#94a3b8' }
+            },
+            showlegend: false,
+            autosize: true
+        };
+
+        Plotly.newPlot(box, traces, layout, { responsive: true, displayModeBar: false });
+    } catch (err) {
+        console.error("Projection plot error:", err);
+    }
+}
+
+function animateNumber(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const current = (progress * (end - start) + start);
+        obj.textContent = current.toFixed(2);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            obj.textContent = end.toFixed(2);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// =====================================================================
+// RECENT PREDICTIONS HISTORY
+// =====================================================================
+async function loadHistory() {
+    try {
+        const res = await fetch('/api/prediction_history');
+        const data = await res.json();
+        const tbody = document.getElementById('history-tbody');
+
+        tbody.innerHTML = '';
+        if (!data.history || data.history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px;">No predictions recorded yet.</td></tr>`;
+            return;
+        }
+
+        data.history.forEach(item => {
+            const tr = document.createElement('tr');
+            const timeStr = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            tr.innerHTML = `
+                <td style="color:var(--text-muted);">${timeStr}</td>
+                <td><strong>${item.category_name}</strong></td>
+                <td>${item.sample_label}</td>
+                <td><span class="color-dot-inline" style="background-color:${item.hex_color};"></span>${item.hex_color}</td>
+                <td><strong style="color:var(--primary);font-family:var(--font-mono);font-size:15px;">${item.predicted_concentration} ${item.unit}</strong></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error("Error loading history:", err);
+    }
+}

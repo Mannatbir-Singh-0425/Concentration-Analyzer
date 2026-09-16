@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: concentration-analyzer
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: starter
+    region: oregon
+    healthCheckPath: /login
+    autoDeploy: true
+    disk:
+      name: quantlab-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /data/database.db
+      - key: MODEL_DIR
+        value: /data/model
+      - key: PORT
+        value: 10000
