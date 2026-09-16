@@ -31,14 +31,51 @@ if os.path.dirname(DATABASE):
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 
+# In-Memory Model Cache for Instant Sub-Millisecond Predictions Under High Load
+MODEL_CACHE = {}
+
+
+def get_cached_model(user_id, cat_name):
+    """Retrieve model and scaler from memory, or load from disk into cache."""
+    safe_name = cat_name.replace(" ", "_").lower()
+    cache_key = (user_id, safe_name)
+    if cache_key in MODEL_CACHE:
+        return MODEL_CACHE[cache_key]["model"], MODEL_CACHE[cache_key]["scaler"]
+
+    model_path = os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_model.pkl")
+    scaler_path = os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl")
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        return None, None
+
+    model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
+    MODEL_CACHE[cache_key] = {"model": model, "scaler": scaler}
+    return model, scaler
+
+
+def set_cached_model(user_id, cat_name, model, scaler):
+    """Save model to memory cache and persist to disk."""
+    safe_name = cat_name.replace(" ", "_").lower()
+    cache_key = (user_id, safe_name)
+    MODEL_CACHE[cache_key] = {"model": model, "scaler": scaler}
+    joblib.dump(model, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_model.pkl"))
+    joblib.dump(scaler, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl"))
+
+
 def get_db():
-    conn = sqlite3.connect(DATABASE)
+    """High-concurrency SQLite connection with 30s busy timeout and 64MB cache."""
+    conn = sqlite3.connect(DATABASE, timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA cache_size = -64000")
     return conn
 
 
 def init_db():
+    """Initialize database and enable Write-Ahead Logging (WAL) mode for concurrent access."""
     conn = get_db()
+    conn.execute("PRAGMA journal_mode = WAL")
     cursor = conn.cursor()
 
     # 1. Users Table
@@ -235,10 +272,7 @@ def seed_starter_categories_for_user(user_id, cursor):
         r2 = float(max(0.95, model.score(X_scaled, y)))
 
         cursor.execute("UPDATE categories SET r2_score=? WHERE user_id=? AND name=?", (round(r2, 4), user_id, cat_name))
-
-        safe_name = cat_name.replace(" ", "_").lower()
-        joblib.dump(model, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_model.pkl"))
-        joblib.dump(scaler, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl"))
+        set_cached_model(user_id, cat_name, model, scaler)
 
 
 init_db()
@@ -592,9 +626,7 @@ def train_category():
     r2 = float(model.score(X_scaled, all_y))
     r2_clean = round(max(0.0, r2), 4)
 
-    safe_name = cat_name.replace(" ", "_").lower()
-    joblib.dump(model, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_model.pkl"))
-    joblib.dump(scaler, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl"))
+    set_cached_model(user_id, cat_name, model, scaler)
 
     cursor.execute("UPDATE categories SET trained=1, r2_score=? WHERE user_id=? AND name=?", (r2_clean, user_id, cat_name))
     conn.commit()
@@ -613,7 +645,7 @@ def train_category():
 @app.route("/api/predict_simple", methods=["POST"])
 @login_required
 def predict_simple():
-    """Predict concentration using the current user's trained model."""
+    """Predict concentration using the current user's trained model with in-memory caching."""
     user_id = session["user_id"]
     cat_name = request.form.get("category_name", "").strip()
     sample_label = request.form.get("sample_label", "Unknown Sample").strip()
@@ -621,11 +653,8 @@ def predict_simple():
     if not cat_name:
         return jsonify({"error": "Please select a category"}), 400
 
-    safe_name = cat_name.replace(" ", "_").lower()
-    model_path = os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_model.pkl")
-    scaler_path = os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl")
-
-    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+    model, scaler = get_cached_model(user_id, cat_name)
+    if model is None or scaler is None:
         return jsonify({"error": f"No trained model found for '{cat_name}'. Please train it in Step 1 first."}), 400
 
     img_bgr = None
@@ -643,9 +672,6 @@ def predict_simple():
         return jsonify({"error": "Please provide an image"}), 400
 
     feats = extract_color_features(img_bgr)
-
-    model = joblib.load(model_path)
-    scaler = joblib.load(scaler_path)
 
     X_scaled = scaler.transform([feats["feature_vector"]])
     prediction = float(model.predict(X_scaled)[0])

@@ -366,17 +366,60 @@ function setupModals() {
     };
 }
 
+/// =====================================================================
+// HIGH-CONCURRENCY CLIENT-SIDE IMAGE COMPRESSOR
+// Downsamples heavy mobile phone images (10MB+) to ~800px (~70KB) before uploading
 // =====================================================================
-// PLACE 1: TRAIN MODEL
+function compressImage(fileOrDataUrl, maxWidth = 800, maxHeight = 800, quality = 0.85) {
+    return new Promise((resolve) => {
+        if (!fileOrDataUrl) return resolve(null);
+        const img = new Image();
+        img.onload = () => {
+            let w = img.width;
+            let h = img.height;
+            if (w > maxWidth || h > maxHeight) {
+                if (w > h) {
+                    h = Math.round((h * maxWidth) / w);
+                    w = maxWidth;
+                } else {
+                    w = Math.round((w * maxHeight) / h);
+                    h = maxHeight;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob((blob) => {
+                resolve(blob || fileOrDataUrl);
+            }, 'image/jpeg', quality);
+        };
+        img.onerror = () => resolve(fileOrDataUrl);
+
+        if (typeof fileOrDataUrl === 'string') {
+            img.src = fileOrDataUrl;
+        } else if (fileOrDataUrl instanceof Blob || fileOrDataUrl instanceof File) {
+            const reader = new FileReader();
+            reader.onload = (e) => img.src = e.target.result;
+            reader.onerror = () => resolve(fileOrDataUrl);
+            reader.readAsDataURL(fileOrDataUrl);
+        } else {
+            resolve(fileOrDataUrl);
+        }
+    });
+}
+
+// =====================================================================
+// PLACE 1: TRAIN MODEL SETUP
 // =====================================================================
 function setupTrainForm() {
-    const container = document.getElementById('sample-rows-container');
+    const form = document.getElementById('train-model-form');
     const btnAdd = document.getElementById('btn-add-sample-row');
-    const form = document.getElementById('train-form');
 
-    // Add 3 default sample rows
+    // Add 3 default rows for quick calibration
     addSampleInputRow(0, "Blank / Zero");
-    addSampleInputRow(20, "Low Standard");
+    addSampleInputRow(50, "Mid Standard");
     addSampleInputRow(100, "High Standard");
 
     btnAdd.onclick = () => addSampleInputRow('', '');
@@ -386,7 +429,7 @@ function setupTrainForm() {
 
         const btnTrain = document.getElementById('btn-train-model');
         btnTrain.disabled = true;
-        btnTrain.innerHTML = `<span class="spinner"></span> Training Model...`;
+        btnTrain.innerHTML = `<span class="spinner"></span> Compressing & Training...`;
 
         const formData = new FormData();
         formData.append('category_name', document.getElementById('train-category-input').value.trim());
@@ -395,7 +438,7 @@ function setupTrainForm() {
         const rowEls = document.querySelectorAll('.sample-input-card');
         let validRows = 0;
 
-        rowEls.forEach(row => {
+        for (const row of rowEls) {
             const fileInput = row.querySelector('.sample-file-input');
             const concInput = row.querySelector('.sample-conc-input');
             const labelInput = row.querySelector('.sample-label-input');
@@ -406,18 +449,19 @@ function setupTrainForm() {
 
             if ((hasFile || hasCamera) && concInput.value !== '') {
                 if (hasFile) {
-                    formData.append('images', fileInput.files[0]);
+                    const compressed = await compressImage(fileInput.files[0]);
+                    formData.append('images', compressed, 'standard.jpg');
                     formData.append('images_base64', '');
                 } else if (hasCamera) {
-                    // Send dummy empty file and the real base64
-                    formData.append('images', new Blob());
-                    formData.append('images_base64', cameraB64);
+                    const compressed = await compressImage(cameraB64);
+                    formData.append('images', compressed, 'standard.jpg');
+                    formData.append('images_base64', '');
                 }
                 formData.append('concentrations', concInput.value);
                 formData.append('labels', labelInput.value || `Sample ${concInput.value}`);
                 validRows++;
             }
-        });
+        }
 
         if (validRows < 2) {
             alert("Please provide at least 2 sample photos (upload files or take photos) with known concentrations.");
@@ -823,17 +867,14 @@ function setupPredictDropzone() {
         const sampleLabel = document.getElementById('predict-label-input').value.trim() || 'Unknown Sample';
 
         btnPredict.disabled = true;
-        btnPredict.innerHTML = `<span class="spinner"></span> Analyzing Image...`;
+        btnPredict.innerHTML = `<span class="spinner"></span> Optimizing & Analyzing...`;
 
         const formData = new FormData();
         formData.append('category_name', catName);
         formData.append('sample_label', sampleLabel);
 
-        if (typeof unknownImageFile === 'string') {
-            formData.append('image_base64', unknownImageFile);
-        } else {
-            formData.append('image', unknownImageFile);
-        }
+        const compressed = await compressImage(unknownImageFile);
+        formData.append('image', compressed, 'sample.jpg');
 
         try {
             const res = await fetch('/api/predict_simple', { method: 'POST', body: formData });
