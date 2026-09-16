@@ -5,8 +5,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=5000 \
-    DATABASE_PATH=/data/database.db \
-    MODEL_DIR=/data/model
+    DATABASE_PATH=database.db \
+    MODEL_DIR=model
 
 # Install Linux system dependencies for OpenCV and image operations
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,8 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source code
 COPY . .
 
-# Create persistent storage directory
-RUN mkdir -p /data/model && chmod -R 777 /data
+# Create storage directories
+RUN mkdir -p /app/model /data/model && chmod -R 777 /app /data
 
 # Expose application port
 EXPOSE 5000
