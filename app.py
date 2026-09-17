@@ -25,6 +25,24 @@ CORS(app)
 DATABASE = os.environ.get("DATABASE_PATH", "database.db")
 MODEL_DIR = os.environ.get("MODEL_DIR", "model")
 
+# Strict Session & Cookie Privacy Configuration
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=False,
+    PERMANENT_SESSION_LIFETIME=86400
+)
+
+
+@app.after_request
+def add_security_headers(response):
+    """Enforce strict anti-caching so user data is never retained in browser or proxy cache."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 # Ensure parent storage directories exist (crucial for Docker / Render disk mounts)
 if os.path.dirname(DATABASE):
     os.makedirs(os.path.dirname(DATABASE), exist_ok=True)
@@ -374,9 +392,6 @@ def register():
     """, (username, hashed_pw, security_question or None, hashed_answer, recovery_key, datetime.now().isoformat()))
     new_user_id = cursor.lastrowid
 
-    # Seed starter categories for new user
-    seed_starter_categories_for_user(new_user_id, cursor)
-
     conn.commit()
     conn.close()
 
@@ -506,11 +521,14 @@ def login():
 
 @app.route("/api/logout", methods=["POST", "GET"])
 def logout():
-    """Clear session and log out."""
+    """Clear session, purge memory cache, and delete session cookie."""
     session.clear()
     if request.path == "/api/logout" and request.method == "POST":
-        return jsonify({"message": "Logged out successfully"})
-    return redirect(url_for("login_page"))
+        resp = jsonify({"message": "Logged out successfully"})
+    else:
+        resp = redirect(url_for("login_page"))
+    resp.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
+    return resp
 
 
 @app.route("/api/me", methods=["GET"])
@@ -596,6 +614,55 @@ def create_category():
     except sqlite3.IntegrityError:
         conn.close()
         return jsonify({"error": f"Category '{name}' already exists in your account."}), 400
+
+
+@app.route("/api/categories/<path:cat_name>", methods=["DELETE"])
+@login_required
+def delete_category(cat_name):
+    """Permanently delete a category and its samples/models for the current user."""
+    user_id = session["user_id"]
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM categories WHERE user_id = ? AND name = ?", (user_id, cat_name))
+    cat = cursor.fetchone()
+    if not cat:
+        conn.close()
+        return jsonify({"error": f"Category '{cat_name}' not found in your private account."}), 404
+
+    cursor.execute("DELETE FROM categories WHERE user_id = ? AND name = ?", (user_id, cat_name))
+    cursor.execute("DELETE FROM training_samples WHERE user_id = ? AND category_name = ?", (user_id, cat_name))
+    cursor.execute("DELETE FROM prediction_logs WHERE user_id = ? AND category_name = ?", (user_id, cat_name))
+    conn.commit()
+    conn.close()
+
+    # Clean up memory model cache and files from disk
+    safe_name = cat_name.replace(" ", "_").lower()
+    cache_key = (user_id, safe_name)
+    MODEL_CACHE.pop(cache_key, None)
+
+    for suffix in ["_model.pkl", "_scaler.pkl"]:
+        p = os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}{suffix}")
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+    return jsonify({"message": f"Category '{cat_name}' deleted successfully.", "deleted_category": cat_name})
+
+
+@app.route("/api/categories/seed_starter", methods=["POST"])
+@login_required
+def seed_starter_endpoint():
+    """Voluntarily load private starter test standards into the logged-in user's account."""
+    user_id = session["user_id"]
+    conn = get_db()
+    cursor = conn.cursor()
+    seed_starter_categories_for_user(user_id, cursor)
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Starter standards successfully added to your private workspace!"})
+
 
 
 @app.route("/api/category_samples/<path:cat_name>", methods=["GET"])

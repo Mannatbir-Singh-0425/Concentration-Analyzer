@@ -34,10 +34,10 @@
 
             <!-- Global Category & User Actions Bar -->
             <div class="header-right-actions">
-                <!-- Install App Button (PWA) -->
-                <button id="btn-install-pwa" class="btn btn-install-app btn-sm hidden" title="Install App on Phone or Desktop">
+                <!-- Get App Option (Always Visible) -->
+                <button id="btn-get-app" class="btn btn-get-app btn-sm" title="Get App for Mobile or Desktop">
                     <i data-lucide="smartphone"></i>
-                    <span>Install App</span>
+                    <span>Get App</span>
                 </button>
 
                 <div class="header-category-bar">
@@ -47,16 +47,20 @@
                             <!-- Loaded dynamically -->
                         </select>
                     </div>
-                    <button id="btn-show-new-cat" class="btn btn-outline btn-sm">
+                    <button id="btn-show-new-cat" class="btn btn-outline btn-sm" title="Create New Substance Category">
                         <i data-lucide="plus"></i> New Category
+                    </button>
+                    <button id="btn-delete-cat" class="btn btn-outline-danger btn-sm" title="Delete selected category from your private account">
+                        <i data-lucide="trash-2"></i>
                     </button>
                 </div>
 
                 <!-- User Profile & Log Out -->
                 <div class="header-user-section">
-                    <div class="user-badge" title="Logged in user">
-                        <i data-lucide="user-check"></i>
+                    <div class="user-badge" title="Your private lab session">
+                        <i data-lucide="shield-check" style="color: var(--accent-green);"></i>
                         <span id="header-username">Loading...</span>
+                        <span class="badge-private-pill">Private</span>
                     </div>
                     <button id="btn-logout" class="btn btn-logout btn-sm" title="Log out">
                         <i data-lucide="log-out"></i>
@@ -118,6 +122,25 @@
 
         <!-- Main Content Area -->
         <main class="content-body">
+
+            <!-- Empty Categories Workspace Banner (Visible when user has 0 categories) -->
+            <div id="no-categories-empty-state" class="card empty-state-card hidden" style="margin-bottom: 24px; text-align: center; padding: 36px 20px; border: 1px dashed rgba(0, 242, 254, 0.35); background: rgba(17, 23, 38, 0.7);">
+                <div style="width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 50%; background: rgba(0, 242, 254, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                    <i data-lucide="flask-conical" style="width: 26px; height: 26px;"></i>
+                </div>
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Your Private Lab is Ready</h3>
+                <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 18px; font-size: 13px; line-height: 1.5;">
+                    Your account is completely private and secure. Create your first substance assay to start calibrating, or load optional starter templates for instant testing.
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" id="btn-empty-new-cat" class="btn btn-primary btn-md">
+                        <i data-lucide="plus"></i> Create First Substance
+                    </button>
+                    <button type="button" id="btn-empty-seed-starter" class="btn btn-outline btn-md">
+                        <i data-lucide="sparkles"></i> Load Starter Standards (Protein, Nitrate, Dye)
+                    </button>
+                </div>
+            </div>
 
             <!-- =========================================================
                  PLACE 1: TRAIN MODEL
@@ -209,6 +232,9 @@
                             <select id="samples-cat-filter" class="form-select">
                                 <!-- Populated dynamically -->
                             </select>
+                            <button id="btn-delete-cat-step2" class="btn btn-outline-danger btn-xs" title="Permanently delete this category from your account">
+                                <i data-lucide="trash-2"></i> Delete
+                            </button>
                         </div>
                     </div>
 
@@ -440,6 +466,191 @@
                 </button>
                 <button id="btn-snap-camera-photo" class="btn btn-primary btn-lg">
                     <i data-lucide="aperture"></i> Snap Photo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Get App Modal -->
+    <div id="get-app-modal" class="modal-overlay hidden">
+        <div class="modal-box get-app-modal-box">
+            <div class="modal-header">
+                <div class="modal-title-with-badge">
+                    <div class="get-app-icon-badge">
+                        <i data-lucide="smartphone"></i>
+                    </div>
+                    <div>
+                        <h3>Get Concentration Analyzer App</h3>
+                        <p class="modal-subtitle">Install as a standalone app on your Phone, Tablet, or PC</p>
+                    </div>
+                </div>
+                <button id="btn-close-get-app-modal" class="btn-close" type="button">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Instant 1-Click Install Banner (visible if browser supports direct prompt) -->
+                <div id="instant-install-container" class="instant-install-box hidden">
+                    <div class="instant-install-info">
+                        <div class="pulse-dot"></div>
+                        <div>
+                            <strong>1-Click Direct Install Ready</strong>
+                            <p>Tap below to add Concentration Analyzer to your device.</p>
+                        </div>
+                    </div>
+                    <button id="btn-trigger-instant-install" class="btn btn-primary btn-md" type="button">
+                        <i data-lucide="download"></i>
+                        <span>Install App Now</span>
+                    </button>
+                </div>
+
+                <!-- Platform Tabs -->
+                <div class="install-platform-tabs">
+                    <button type="button" class="platform-tab-btn active" data-platform="ios">
+                        <i data-lucide="apple"></i>
+                        <span>iPhone / iPad</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="android">
+                        <i data-lucide="smartphone"></i>
+                        <span>Android</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="desktop">
+                        <i data-lucide="monitor"></i>
+                        <span>PC / Mac</span>
+                    </button>
+                </div>
+
+                <!-- iOS Guide -->
+                <div id="guide-ios" class="platform-guide-content active">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Open in Safari</strong>
+                                <p>Ensure you are viewing this page in Apple Safari on your iPhone or iPad.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Tap the Share Button</strong>
+                                <p>Tap the <strong>Share</strong> button <i data-lucide="share" class="inline-icon"></i> in the bottom menu bar of Safari.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Tap "Add to Home Screen"</strong>
+                                <p>Scroll down the share sheet and select <strong>"Add to Home Screen"</strong> <i data-lucide="plus-square" class="inline-icon"></i>.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">4</div>
+                            <div class="step-text">
+                                <strong>Tap "Add" in the top-right corner</strong>
+                                <p>The app will appear directly on your phone's home screen with the app icon!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Android Guide -->
+                <div id="guide-android" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Tap Chrome Options</strong>
+                                <p>In Google Chrome, tap the <strong>three dots (⋮)</strong> menu in the top-right corner.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Select "Install App" or "Add to Home screen"</strong>
+                                <p>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong> from the dropdown list.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Confirm Installation</strong>
+                                <p>Tap <strong>Install</strong> when prompted. The app launches with high camera speed!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Guide -->
+                <div id="guide-desktop" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Look at the Address Bar</strong>
+                                <p>In Google Chrome, Microsoft Edge, or Brave, look at the right side of the URL address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Click the Install Icon</strong>
+                                <p>Click the <strong>Install / Download</strong> icon <i data-lucide="download" class="inline-icon"></i> in the address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Launch as a Desktop Window</strong>
+                                <p>Click <strong>"Install"</strong> to launch Concentration Analyzer in its own dedicated, clean window without browser tabs!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- App Highlights Card -->
+                <div class="get-app-features-grid">
+                    <div class="app-feat-item">
+                        <i data-lucide="zap"></i>
+                        <span>Instant Startup</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="camera"></i>
+                        <span>Camera Viewfinder</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="shield-check"></i>
+                        <span>Private User Data</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="hard-drive"></i>
+                        <span>0 MB App Store Download</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-done-get-app" class="btn btn-ghost" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Delete Confirmation Modal -->
+    <div id="delete-cat-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Delete Substance Category</h3>
+                <button id="btn-close-delete-modal" class="btn-close" type="button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete category <strong id="delete-cat-target-name" style="color: var(--primary);">--</strong>?</p>
+                <p style="color: var(--accent-red); font-size: 13px; margin-top: 10px;">
+                    Warning: This will permanently remove all training reference samples, calibration curves, and prediction records for this substance from your private account.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-delete-cat" class="btn btn-ghost" type="button">Cancel</button>
+                <button id="btn-confirm-delete-cat" class="btn btn-danger" type="button">
+                    <i data-lucide="trash-2"></i> Permanently Delete
                 </button>
             </div>
         </div>

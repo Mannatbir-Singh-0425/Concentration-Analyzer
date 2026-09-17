@@ -3,10 +3,8 @@
  * Enables offline shell, instant loading, and installability on Android, iOS & Desktop.
  */
 
-const CACHE_NAME = 'quantlab-cache-v3';
+const CACHE_NAME = 'quantlab-cache-v4';
 const PRECACHE_ASSETS = [
-    '/',
-    '/login',
     '/static/css/style.css',
     '/static/js/app.js',
     '/static/icons/icon-192.png',

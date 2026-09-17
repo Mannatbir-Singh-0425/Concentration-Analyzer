@@ -47,30 +47,66 @@ if ('serviceWorker' in navigator) {
 
 let deferredPrompt = null;
 function setupPwaInstall() {
-    const installBtn = document.getElementById('btn-install-pwa');
-    if (!installBtn) return;
+    const getAppBtn = document.getElementById('btn-get-app');
+    const getAppModal = document.getElementById('get-app-modal');
+    const btnCloseGetAppModal = document.getElementById('btn-close-get-app-modal');
+    const btnDoneGetApp = document.getElementById('btn-done-get-app');
+    const btnInstantInstall = document.getElementById('btn-trigger-instant-install');
+    const instantInstallContainer = document.getElementById('instant-install-container');
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        installBtn.classList.remove('hidden');
+        if (instantInstallContainer) instantInstallContainer.classList.remove('hidden');
     });
 
-    installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) {
-            alert("To install this app on your phone:\n- Android Chrome: Tap '...' then 'Install app'\n- iPhone Safari: Tap 'Share' then 'Add to Home Screen'");
-            return;
+    function openGetAppModal() {
+        if (getAppModal) getAppModal.classList.remove('hidden');
+        if (deferredPrompt && instantInstallContainer) {
+            instantInstallContainer.classList.remove('hidden');
         }
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log('[PWA] User choice:', outcome);
-        deferredPrompt = null;
-        installBtn.classList.add('hidden');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeGetAppModal() {
+        if (getAppModal) getAppModal.classList.add('hidden');
+    }
+
+    if (getAppBtn) getAppBtn.addEventListener('click', openGetAppModal);
+    if (btnCloseGetAppModal) btnCloseGetAppModal.addEventListener('click', closeGetAppModal);
+    if (btnDoneGetApp) btnDoneGetApp.addEventListener('click', closeGetAppModal);
+
+    if (btnInstantInstall) {
+        btnInstantInstall.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] User choice:', outcome);
+                deferredPrompt = null;
+                closeGetAppModal();
+            } else {
+                alert("Please follow the instructions for your device below to install Concentration Analyzer to your home screen or desktop.");
+            }
+        });
+    }
+
+    // Platform Tab Switching in Get App Modal
+    document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const platform = btn.getAttribute('data-platform');
+            document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#get-app-modal .platform-guide-content').forEach(g => g.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetGuide = document.getElementById(`guide-${platform}`);
+            if (targetGuide) targetGuide.classList.add('active');
+            if (window.lucide) window.lucide.createIcons();
+        });
     });
 
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] App installed successfully');
-        installBtn.classList.add('hidden');
+        if (instantInstallContainer) instantInstallContainer.classList.add('hidden');
     });
 }
 
@@ -261,10 +297,26 @@ async function loadCategories() {
 
         populateCategoryDropdowns();
 
+        const noCatBanner = document.getElementById('no-categories-empty-state');
+        const trainBanner = document.getElementById('train-current-status-banner');
+        const dashboard = document.getElementById('place2-dashboard');
+        const emptyState = document.getElementById('samples-empty-state');
+
         if (categories.length > 0) {
+            if (noCatBanner) noCatBanner.classList.add('hidden');
+            if (dashboard) dashboard.classList.remove('hidden');
             const active = categories.find(c => c.name === currentCategory) || categories[0];
+            currentCategory = active.name;
             updateTrainStatusBanner(active);
             await loadCategorySamples(active.name);
+        } else {
+            currentCategory = "";
+            if (noCatBanner) noCatBanner.classList.remove('hidden');
+            if (trainBanner) trainBanner.classList.add('hidden');
+            if (dashboard) dashboard.classList.add('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
+            const samplesTableBody = document.getElementById('samples-table-body');
+            if (samplesTableBody) samplesTableBody.innerHTML = '';
         }
     } catch (err) {
         console.error("Error loading categories:", err);
@@ -306,6 +358,27 @@ function populateCategoryDropdowns() {
     filterSelect.innerHTML = '';
     predictSelect.innerHTML = '';
 
+    if (categories.length === 0) {
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = 'No categories created';
+        globalSelect.appendChild(emptyOpt);
+
+        const emptyOpt2 = document.createElement('option');
+        emptyOpt2.value = '';
+        emptyOpt2.textContent = 'No categories';
+        filterSelect.appendChild(emptyOpt2);
+
+        const emptyOpt3 = document.createElement('option');
+        emptyOpt3.value = '';
+        emptyOpt3.textContent = 'No categories';
+        predictSelect.appendChild(emptyOpt3);
+
+        if (trainCatInput) trainCatInput.value = '';
+        if (trainUnitInput) trainUnitInput.value = 'mg/L';
+        return;
+    }
+
     categories.forEach(cat => {
         const opt1 = document.createElement('option');
         opt1.value = cat.name;
@@ -323,18 +396,16 @@ function populateCategoryDropdowns() {
         predictSelect.appendChild(opt3);
     });
 
-    if (categories.length > 0) {
-        const active = categories.find(c => c.name === currentCategory) || categories[0];
-        currentCategory = active.name;
+    const active = categories.find(c => c.name === currentCategory) || categories[0];
+    currentCategory = active.name;
 
-        globalSelect.value = currentCategory;
-        filterSelect.value = currentCategory;
-        predictSelect.value = currentCategory;
+    globalSelect.value = currentCategory;
+    filterSelect.value = currentCategory;
+    predictSelect.value = currentCategory;
 
-        if (trainCatInput) trainCatInput.value = currentCategory;
-        if (trainUnitInput) trainUnitInput.value = active.unit;
-        updateTrainStatusBanner(active);
-    }
+    if (trainCatInput) trainCatInput.value = currentCategory;
+    if (trainUnitInput) trainUnitInput.value = active.unit;
+    updateTrainStatusBanner(active);
 
     // Global category change
     globalSelect.onchange = () => onCategoryChanged(globalSelect.value);
@@ -343,6 +414,7 @@ function populateCategoryDropdowns() {
 }
 
 function onCategoryChanged(catName) {
+    if (!catName) return;
     currentCategory = catName;
     const globalSelect = document.getElementById('global-category-select');
     const filterSelect = document.getElementById('samples-cat-filter');
@@ -364,12 +436,19 @@ function onCategoryChanged(catName) {
     loadCategorySamples(catName);
 }
 
-// Modal Setup for New Category
+// Modal Setup for New Category & Delete Category
 function setupModals() {
     const modal = document.getElementById('new-cat-modal');
+    const deleteModal = document.getElementById('delete-cat-modal');
+    const targetNameEl = document.getElementById('delete-cat-target-name');
+
+    // Create Category Modal Controls
     document.getElementById('btn-show-new-cat').onclick = () => modal.classList.remove('hidden');
     document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
     document.getElementById('btn-cancel-cat').onclick = () => modal.classList.add('hidden');
+
+    const btnEmptyNewCat = document.getElementById('btn-empty-new-cat');
+    if (btnEmptyNewCat) btnEmptyNewCat.onclick = () => modal.classList.remove('hidden');
 
     document.getElementById('btn-save-new-cat').onclick = async () => {
         const name = document.getElementById('new-cat-name').value.trim();
@@ -395,6 +474,7 @@ function setupModals() {
 
             modal.classList.add('hidden');
             document.getElementById('new-cat-name').value = '';
+            currentCategory = name;
             await loadCategories();
             onCategoryChanged(name);
             switchTab('place-train');
@@ -402,6 +482,82 @@ function setupModals() {
             console.error("Create category error:", err);
         }
     };
+
+    // Delete Category Modal Controls
+    function openDeleteModal() {
+        if (!currentCategory) {
+            alert("No category selected to delete.");
+            return;
+        }
+        if (targetNameEl) targetNameEl.textContent = currentCategory;
+        if (deleteModal) deleteModal.classList.remove('hidden');
+    }
+
+    const btnDeleteCat = document.getElementById('btn-delete-cat');
+    const btnDeleteCatStep2 = document.getElementById('btn-delete-cat-step2');
+    const btnCloseDeleteModal = document.getElementById('btn-close-delete-modal');
+    const btnCancelDeleteCat = document.getElementById('btn-cancel-delete-cat');
+    const btnConfirmDeleteCat = document.getElementById('btn-confirm-delete-cat');
+
+    if (btnDeleteCat) btnDeleteCat.onclick = openDeleteModal;
+    if (btnDeleteCatStep2) btnDeleteCatStep2.onclick = openDeleteModal;
+    if (btnCloseDeleteModal) btnCloseDeleteModal.onclick = () => deleteModal.classList.add('hidden');
+    if (btnCancelDeleteCat) btnCancelDeleteCat.onclick = () => deleteModal.classList.add('hidden');
+
+    if (btnConfirmDeleteCat) {
+        btnConfirmDeleteCat.onclick = async () => {
+            if (!currentCategory) return;
+            btnConfirmDeleteCat.disabled = true;
+            btnConfirmDeleteCat.textContent = "Deleting...";
+
+            try {
+                const res = await fetch(`/api/categories/${encodeURIComponent(currentCategory)}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                deleteModal.classList.add('hidden');
+                currentCategory = "";
+                await loadCategories();
+            } catch (err) {
+                console.error("Delete category error:", err);
+                alert("Network error while deleting category.");
+            } finally {
+                btnConfirmDeleteCat.disabled = false;
+                btnConfirmDeleteCat.innerHTML = `<i data-lucide="trash-2"></i> Permanently Delete`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        };
+    }
+
+    // Load Starter Standards in Empty State
+    const btnSeedStarter = document.getElementById('btn-empty-seed-starter');
+    if (btnSeedStarter) {
+        btnSeedStarter.onclick = async () => {
+            btnSeedStarter.disabled = true;
+            btnSeedStarter.textContent = "Loading Standards...";
+            try {
+                const res = await fetch('/api/categories/seed_starter', { method: 'POST' });
+                const data = await res.json();
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                await loadCategories();
+            } catch (err) {
+                console.error("Error loading starter templates:", err);
+            } finally {
+                btnSeedStarter.disabled = false;
+                btnSeedStarter.innerHTML = `<i data-lucide="sparkles"></i> Load Starter Standards (Protein, Nitrate, Dye)`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        };
+    }
 }
 
 /// =====================================================================

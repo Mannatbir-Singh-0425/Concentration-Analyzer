@@ -23,6 +23,17 @@
         <div class="ambient-glow glow-1"></div>
         <div class="ambient-glow glow-2"></div>
 
+        <!-- Top Right Get App Trigger -->
+        <div class="login-top-bar">
+            <button id="btn-get-app-login" class="btn-get-app-pill" type="button" title="Install App on Phone or PC">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                    <path d="M12 18h.01"/>
+                </svg>
+                <span>Get App</span>
+            </button>
+        </div>
+
         <div class="auth-card">
             <!-- Brand Header -->
             <div class="auth-brand">
@@ -916,6 +927,228 @@
                 btnRecoverySubmit.querySelector('span').textContent = 'Reset Password & Enter Lab';
             }
         });
+
+        // =========================================================
+        // GET APP MODAL & PWA LOGIC (LOGIN SCREEN)
+        // =========================================================
+        let loginDeferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            loginDeferredPrompt = e;
+            const instantBox = document.getElementById('instant-install-container-login');
+            if (instantBox) instantBox.classList.remove('hidden');
+        });
+
+        const getAppModal = document.getElementById('get-app-modal-login');
+        const btnGetAppLogin = document.getElementById('btn-get-app-login');
+        const btnCloseGetAppModal = document.getElementById('btn-close-get-app-login');
+        const btnDoneGetApp = document.getElementById('btn-done-get-app-login');
+        const btnInstantInstall = document.getElementById('btn-trigger-instant-install-login');
+
+        function openGetAppModal() {
+            if (getAppModal) getAppModal.classList.remove('hidden');
+            if (loginDeferredPrompt) {
+                const instantBox = document.getElementById('instant-install-container-login');
+                if (instantBox) instantBox.classList.remove('hidden');
+            }
+        }
+
+        function closeGetAppModal() {
+            if (getAppModal) getAppModal.classList.add('hidden');
+        }
+
+        if (btnGetAppLogin) btnGetAppLogin.addEventListener('click', openGetAppModal);
+        if (btnCloseGetAppModal) btnCloseGetAppModal.addEventListener('click', closeGetAppModal);
+        if (btnDoneGetApp) btnDoneGetApp.addEventListener('click', closeGetAppModal);
+
+        if (btnInstantInstall) {
+            btnInstantInstall.addEventListener('click', async () => {
+                if (loginDeferredPrompt) {
+                    loginDeferredPrompt.prompt();
+                    const { outcome } = await loginDeferredPrompt.userChoice;
+                    loginDeferredPrompt = null;
+                    closeGetAppModal();
+                } else {
+                    alert("Please follow the instructions for your device below to add Concentration Analyzer to your home screen or desktop.");
+                }
+            });
+        }
+
+        // Platform tab switching
+        document.querySelectorAll('#get-app-modal-login .platform-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const platform = btn.getAttribute('data-platform');
+                document.querySelectorAll('#get-app-modal-login .platform-tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#get-app-modal-login .platform-guide-content').forEach(g => g.classList.remove('active'));
+
+                btn.classList.add('active');
+                const targetGuide = document.getElementById(`guide-${platform}-login`);
+                if (targetGuide) targetGuide.classList.add('active');
+            });
+        });
     </script>
+
+    <!-- Get App Modal for Login Screen -->
+    <div id="get-app-modal-login" class="modal-overlay hidden">
+        <div class="modal-box get-app-modal-box">
+            <div class="modal-header">
+                <div class="modal-title-with-badge">
+                    <div class="get-app-icon-badge">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                            <path d="M12 18h.01"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>Get Concentration Analyzer App</h3>
+                        <p class="modal-subtitle">Install as a standalone app on your Phone, Tablet, or PC</p>
+                    </div>
+                </div>
+                <button id="btn-close-get-app-login" class="btn-close" type="button">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Instant 1-Click Install Banner -->
+                <div id="instant-install-container-login" class="instant-install-box hidden">
+                    <div class="instant-install-info">
+                        <div class="pulse-dot"></div>
+                        <div>
+                            <strong>1-Click Direct Install Ready</strong>
+                            <p>Tap below to add Concentration Analyzer to your device.</p>
+                        </div>
+                    </div>
+                    <button id="btn-trigger-instant-install-login" class="btn btn-primary btn-md" type="button">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span>Install App Now</span>
+                    </button>
+                </div>
+
+                <!-- Platform Tabs -->
+                <div class="install-platform-tabs">
+                    <button type="button" class="platform-tab-btn active" data-platform="ios">
+                        <span>iPhone / iPad</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="android">
+                        <span>Android</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="desktop">
+                        <span>PC / Mac</span>
+                    </button>
+                </div>
+
+                <!-- iOS Guide -->
+                <div id="guide-ios-login" class="platform-guide-content active">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Open in Safari</strong>
+                                <p>Ensure you are viewing this page in Apple Safari on your iPhone or iPad.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Tap the Share Button</strong>
+                                <p>Tap the <strong>Share</strong> button at the bottom of your Safari browser.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Tap "Add to Home Screen"</strong>
+                                <p>Scroll down the share menu and select <strong>"Add to Home Screen"</strong>.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">4</div>
+                            <div class="step-text">
+                                <strong>Tap "Add" in top-right corner</strong>
+                                <p>The app will launch directly from your home screen with zero browser bars!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Android Guide -->
+                <div id="guide-android-login" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Tap Chrome Options (⋮)</strong>
+                                <p>In Google Chrome on Android, tap the <strong>three dots</strong> menu in the upper corner.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Select "Install App" or "Add to Home screen"</strong>
+                                <p>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong> in the options list.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Confirm Installation</strong>
+                                <p>Tap <strong>Install</strong> when prompted. It works with full camera and offline features!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Guide -->
+                <div id="guide-desktop-login" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Check the Address Bar</strong>
+                                <p>In Chrome, Edge, or Brave, look at the right end of the top address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Click the Install Icon</strong>
+                                <p>Click the <strong>Install / Computer with arrow</strong> icon in the address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Run Concentration Analyzer</strong>
+                                <p>The app opens in its own window like a native desktop software application.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Highlights -->
+                <div class="get-app-features-grid">
+                    <div class="app-feat-item">
+                        <span>⚡ Fast Launch</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <span>📸 Camera Viewfinder</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <span>🔒 Private User Data</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <span>💾 0 MB Download</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-done-get-app-login" class="btn btn-ghost" type="button">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
