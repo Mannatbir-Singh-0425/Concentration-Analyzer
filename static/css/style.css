@@ -1265,16 +1265,26 @@ body {
 .login-body {
     background-color: var(--bg-base);
     min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
     overflow-x: hidden;
     position: relative;
-}
-
-.login-wrapper {
-    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+}
+
+.login-wrapper {
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    box-sizing: border-box;
     position: relative;
     z-index: 10;
 }
@@ -1308,7 +1318,8 @@ body {
 .auth-card {
     width: 100%;
     max-width: 440px;
-    background: rgba(17, 23, 38, 0.88);
+    margin: auto;
+    background: rgba(17, 23, 38, 0.92);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1317,6 +1328,7 @@ body {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(0, 242, 254, 0.08);
     position: relative;
     z-index: 10;
+    box-sizing: border-box;
     animation: fadeInScale 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1760,38 +1772,6 @@ body {
     color: #ffffff;
 }
 
-.login-top-bar {
-    width: 100%;
-    max-width: 440px;
-    margin: 0 auto 14px;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.btn-get-app-pill {
-    background: rgba(17, 23, 38, 0.85);
-    border: 1px solid rgba(0, 242, 254, 0.35);
-    color: var(--primary);
-    font-weight: 700;
-    font-size: 12px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-}
-
-.btn-get-app-pill:hover {
-    background: rgba(0, 242, 254, 0.15);
-    border-color: var(--primary);
-    transform: translateY(-1px);
-    box-shadow: 0 0 16px rgba(0, 242, 254, 0.3);
-}
-
 .badge-private-pill {
     font-size: 10px;
     font-weight: 800;
@@ -2047,6 +2027,511 @@ body {
     flex-shrink: 0;
 }
 
+/* =====================================================================
+   COMPREHENSIVE RESPONSIVE DESIGN SYSTEM
+   Optimized for Laptops, Tablets, Mobile Phones & PWA Standalone Mode
+   ===================================================================== */
 
+/* iOS Safe Area & Standalone Display Mode */
+@supports (padding: max(0px)) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+}
 
+/* ---------------------------------------------------------------------
+   1. LAPTOPS & DESKTOPS (<= 1200px)
+   --------------------------------------------------------------------- */
+@media (max-width: 1200px) {
+    .app-container {
+        padding: 18px 16px 50px;
+    }
 
+    .predict-layout {
+        gap: 20px;
+    }
+
+    .header-right-actions {
+        gap: 12px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   2. TABLETS & NETBOOKS (<= 1024px)
+   --------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+        padding: 16px 20px;
+    }
+
+    .brand {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .header-right-actions {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .header-category-bar {
+        flex: 1;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .category-select-wrapper {
+        flex: 1;
+        min-width: 190px;
+    }
+
+    .header-user-section {
+        border-left: none;
+        padding-left: 0;
+        margin-left: auto;
+    }
+
+    .predict-layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .place2-dashboard {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .category-plotly-graph {
+        min-height: 320px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   3. MOBILE PHONES (<= 768px)
+   --------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+    }
+
+    .app-container {
+        padding: 12px 10px 40px;
+        max-width: 100%;
+    }
+
+    .app-header {
+        padding: 14px 12px;
+        border-radius: var(--radius-md);
+        margin-bottom: 14px;
+        gap: 12px;
+    }
+
+    .brand {
+        gap: 10px;
+    }
+
+    .brand-icon-box {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+    }
+
+    .brand-name {
+        font-size: 16px;
+        line-height: 1.2;
+    }
+
+    .brand-subtitle {
+        font-size: 11px;
+    }
+
+    .header-right-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .btn-get-app {
+        width: 100%;
+        justify-content: center;
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .header-category-bar {
+        display: flex;
+        width: 100%;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .category-select-wrapper {
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+        padding: 6px 10px;
+    }
+
+    .cat-label {
+        font-size: 9px;
+    }
+
+    .category-dropdown {
+        font-size: 12px;
+        width: 100%;
+    }
+
+    .header-category-bar .btn {
+        flex-shrink: 0;
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .header-user-section {
+        width: 100%;
+        justify-content: space-between;
+        border-top: 1px solid var(--border-color);
+        padding-top: 10px;
+        margin-left: 0;
+    }
+
+    .user-badge {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .btn-logout {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+
+    /* 3 Primary Navigation Tabs on Mobile */
+    .main-tabs {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+
+    .tab-button {
+        padding: 10px 4px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 6px;
+        border-radius: var(--radius-md);
+        min-height: 62px;
+    }
+
+    .tab-button .step-num {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+    }
+
+    .tab-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .tab-info strong {
+        font-size: 11px;
+        text-align: center;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+
+    .tab-info span {
+        display: none !important; /* Hide subtitle on phones to prevent horizontal overflow */
+    }
+
+    /* Cards & Forms */
+    .card {
+        padding: 16px 12px;
+        border-radius: var(--radius-md);
+    }
+
+    .card-header {
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+    }
+
+    .card-header h2 {
+        font-size: 15px;
+    }
+
+    .card-desc {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .card-header.space-between {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .category-filter-box {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .category-filter-box select {
+        flex: 1;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .width-160 {
+        width: 100%;
+    }
+
+    /* Step 1 Sample Input Rows */
+    .sample-input-card {
+        display: grid;
+        grid-template-columns: 56px 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+    }
+
+    .sample-input-card > :nth-child(1) { /* .sample-thumb-preview */
+        grid-row: 1 / span 2;
+        grid-column: 1;
+        width: 54px;
+        height: 54px;
+    }
+
+    .sample-input-card > :nth-child(2) { /* Photo Upload & Camera */
+        grid-row: 1;
+        grid-column: 2;
+    }
+
+    .sample-input-card > :nth-child(3) { /* Known Concentration */
+        grid-row: 2;
+        grid-column: 2;
+    }
+
+    .sample-input-card > :nth-child(5) { /* Trash button */
+        grid-row: 1 / span 2;
+        grid-column: 3;
+        align-self: center;
+    }
+
+    .sample-photo-options {
+        gap: 6px;
+    }
+
+    .btn-file-label,
+    .btn-row-camera {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+
+    .sample-conc-input {
+        font-size: 12px;
+        padding: 7px 10px;
+    }
+
+    #btn-train-model {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Step 2 Calibration Curve & Table */
+    .graph-metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .g-metric-card {
+        padding: 10px 12px;
+    }
+
+    .samples-list-wrap,
+    .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .organized-table,
+    .simple-table {
+        min-width: 300px;
+        font-size: 11px;
+    }
+
+    .organized-table th,
+    .organized-table td,
+    .simple-table th,
+    .simple-table td {
+        padding: 8px 10px;
+    }
+
+    /* Step 3 Prediction */
+    .result-card {
+        padding: 22px 14px;
+    }
+
+    .result-number {
+        font-size: 46px;
+    }
+
+    .result-unit {
+        font-size: 18px;
+    }
+
+    .result-color-row {
+        gap: 8px;
+    }
+
+    .upload-dropzone {
+        padding: 22px 14px;
+        min-height: 160px;
+    }
+
+    /* Modals & Camera */
+    .modal-box {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        padding: 18px 14px !important;
+        max-height: 90vh;
+    }
+
+    .camera-modal-box {
+        width: 96vw;
+        max-height: 92vh;
+    }
+
+    .camera-viewport {
+        height: 280px;
+    }
+
+    .camera-reticle-frame {
+        width: 150px;
+        height: 150px;
+    }
+
+    /* Login Page Centering & Mobile Polish */
+    .login-wrapper {
+        padding: 16px 12px;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .auth-card {
+        padding: 28px 18px;
+        border-radius: 16px;
+        max-width: 100%;
+    }
+
+    .auth-brand {
+        margin-bottom: 20px;
+    }
+
+    .auth-title {
+        font-size: 20px;
+    }
+
+    .auth-subtitle {
+        font-size: 12px;
+    }
+
+    .auth-tabs {
+        gap: 6px;
+    }
+
+    .auth-tab-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+
+    .get-app-modal-box {
+        width: 95vw;
+        padding: 18px 14px;
+    }
+}
+
+/* ---------------------------------------------------------------------
+   4. EXTRA SMALL MOBILES (<= 480px)
+   --------------------------------------------------------------------- */
+@media (max-width: 480px) {
+    .brand-name {
+        font-size: 15px;
+    }
+
+    .brand-subtitle {
+        display: none; /* Keep header super sleek on tiny phones */
+    }
+
+    .btn-lg {
+        padding: 11px 16px;
+        font-size: 13px;
+    }
+
+    .result-number {
+        font-size: 38px;
+    }
+
+    .result-unit {
+        font-size: 16px;
+    }
+
+    .auth-card {
+        padding: 24px 14px;
+    }
+
+    .install-platform-tabs {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .platform-tab-btn {
+        padding: 7px 12px;
+        font-size: 12px;
+    }
+
+    .get-app-features-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .sample-photo-options {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .sample-photo-options .btn-file-label,
+    .sample-photo-options .btn-row-camera {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .instant-install-box {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .instant-install-box .btn {
+        width: 100%;
+    }
+}
