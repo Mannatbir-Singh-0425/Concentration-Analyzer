@@ -1747,13 +1747,83 @@ body {
 }
 
 /* =====================================================================
-/* Get App Option Removed from App */
-.btn-get-app,
-#btn-get-app,
-#get-app-modal,
-.get-app-modal-box {
-    display: none !important;
+   CORNER "GET APP" FLOATING TRIGGER & INSTALL MODAL
+   ===================================================================== */
+.corner-get-app-wrapper {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 990;
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.btn-corner-get-app {
+    background: linear-gradient(135deg, rgba(17, 23, 38, 0.95), rgba(10, 14, 23, 0.98));
+    border: 1px solid rgba(0, 242, 254, 0.45);
+    border-radius: 50px;
+    padding: 10px 18px;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 242, 254, 0.2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-corner-get-app:hover {
+    background: linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(56, 189, 248, 0.35));
+    border-color: var(--primary);
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7), 0 0 28px rgba(0, 242, 254, 0.4);
+}
+
+.btn-corner-get-app:active {
+    transform: translateY(0);
+}
+
+.corner-pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-green);
+    animation: pulseGlow 1.8s infinite;
+}
+
+.corner-app-icon {
+    width: 16px;
+    height: 16px;
+    color: inherit;
+}
+
+.corner-app-text {
+    letter-spacing: 0.3px;
+}
+
+@media (display-mode: standalone) {
+    .corner-get-app-wrapper {
+        display: none !important;
+    }
+}
+
 
 .badge-private-pill {
     font-size: 10px;
@@ -2441,6 +2511,21 @@ body {
         font-size: 12px;
     }
 
+    .corner-get-app-wrapper {
+        bottom: 16px;
+        right: 14px;
+    }
+
+    .btn-corner-get-app {
+        padding: 8px 14px;
+        font-size: 12px;
+        gap: 6px;
+    }
+
+    .corner-app-icon {
+        width: 14px;
+        height: 14px;
+    }
 }
 
 /* ---------------------------------------------------------------------

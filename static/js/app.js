@@ -47,14 +47,70 @@ if ('serviceWorker' in navigator) {
 
 let deferredPrompt = null;
 function setupPwaInstall() {
-    // Background PWA support without visible in-app button
+    const cornerBtn = document.getElementById('btn-corner-get-app');
+    const getAppModal = document.getElementById('get-app-modal');
+    const btnClose = document.getElementById('btn-close-get-app-modal');
+    const btnDone = document.getElementById('btn-done-get-app');
+    const btnInstant = document.getElementById('btn-trigger-instant-install');
+    const instantBox = document.getElementById('instant-install-container');
+    const cornerWrapper = document.getElementById('corner-get-app-wrapper');
+
+    // If running in installed PWA standalone mode, hide the corner button
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        if (cornerWrapper) cornerWrapper.style.display = 'none';
+    }
+
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
+        if (instantBox) instantBox.classList.remove('hidden');
+    });
+
+    function openModal() {
+        if (getAppModal) getAppModal.classList.remove('hidden');
+        if (deferredPrompt && instantBox) instantBox.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeModal() {
+        if (getAppModal) getAppModal.classList.add('hidden');
+    }
+
+    if (cornerBtn) cornerBtn.addEventListener('click', openModal);
+    if (btnClose) btnClose.addEventListener('click', closeModal);
+    if (btnDone) btnDone.addEventListener('click', closeModal);
+
+    if (btnInstant) {
+        btnInstant.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] User choice:', outcome);
+                deferredPrompt = null;
+                closeModal();
+            } else {
+                alert("Please follow the instructions for your device below to install Concentration Analyzer to your home screen or desktop.");
+            }
+        });
+    }
+
+    // Platform Tab Switching
+    document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const platform = btn.getAttribute('data-platform');
+            document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#get-app-modal .platform-guide-content').forEach(g => g.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetGuide = document.getElementById(`guide-${platform}`);
+            if (targetGuide) targetGuide.classList.add('active');
+            if (window.lucide) window.lucide.createIcons();
+        });
     });
 
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] App installed successfully');
+        if (cornerWrapper) cornerWrapper.style.display = 'none';
     });
 }
 

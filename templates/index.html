@@ -486,6 +486,178 @@
         </div>
     </div>
 
+    <!-- Floating Corner "Get App" Trigger (Dedicated corner for great view on website) -->
+    <div id="corner-get-app-wrapper" class="corner-get-app-wrapper">
+        <button id="btn-corner-get-app" class="btn-corner-get-app" type="button" title="Install Concentration Analyzer as an App on Phone, Tablet, or PC">
+            <span class="corner-pulse-dot"></span>
+            <i data-lucide="smartphone" class="corner-app-icon"></i>
+            <span class="corner-app-text">Get App</span>
+        </button>
+    </div>
+
+    <!-- Get App Modal -->
+    <div id="get-app-modal" class="modal-overlay hidden">
+        <div class="modal-box get-app-modal-box">
+            <div class="modal-header">
+                <div class="modal-title-with-badge">
+                    <div class="get-app-icon-badge">
+                        <i data-lucide="smartphone"></i>
+                    </div>
+                    <div>
+                        <h3>Get Concentration Analyzer App</h3>
+                        <p class="modal-subtitle">Install as a standalone app on your Phone, Tablet, or PC</p>
+                    </div>
+                </div>
+                <button id="btn-close-get-app-modal" class="btn-close" type="button">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Instant 1-Click Install Banner (visible if browser supports direct prompt) -->
+                <div id="instant-install-container" class="instant-install-box hidden">
+                    <div class="instant-install-info">
+                        <div class="pulse-dot"></div>
+                        <div>
+                            <strong>1-Click Direct Install Ready</strong>
+                            <p>Tap below to add Concentration Analyzer to your device.</p>
+                        </div>
+                    </div>
+                    <button id="btn-trigger-instant-install" class="btn btn-primary btn-md" type="button">
+                        <i data-lucide="download"></i>
+                        <span>Install App Now</span>
+                    </button>
+                </div>
+
+                <!-- Platform Tabs -->
+                <div class="install-platform-tabs">
+                    <button type="button" class="platform-tab-btn active" data-platform="ios">
+                        <i data-lucide="apple"></i>
+                        <span>iPhone / iPad</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="android">
+                        <i data-lucide="smartphone"></i>
+                        <span>Android</span>
+                    </button>
+                    <button type="button" class="platform-tab-btn" data-platform="desktop">
+                        <i data-lucide="monitor"></i>
+                        <span>PC / Mac</span>
+                    </button>
+                </div>
+
+                <!-- iOS Guide -->
+                <div id="guide-ios" class="platform-guide-content active">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Open in Safari</strong>
+                                <p>Ensure you are viewing this page in Apple Safari on your iPhone or iPad.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Tap the Share Button</strong>
+                                <p>Tap the <strong>Share</strong> button <i data-lucide="share" class="inline-icon"></i> in Safari's bottom menu bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Tap "Add to Home Screen"</strong>
+                                <p>Scroll down the share menu and select <strong>"Add to Home Screen"</strong> <i data-lucide="plus-square" class="inline-icon"></i>.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">4</div>
+                            <div class="step-text">
+                                <strong>Tap "Add" in the top-right corner</strong>
+                                <p>The app will launch directly from your home screen with zero browser bars!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Android Guide -->
+                <div id="guide-android" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Tap Chrome Options</strong>
+                                <p>In Google Chrome, tap the <strong>three dots (⋮)</strong> menu in the top-right corner.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Select "Install App" or "Add to Home screen"</strong>
+                                <p>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong> from the options.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Confirm Installation</strong>
+                                <p>Tap <strong>Install</strong> when prompted. It works with full camera and offline features!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Guide -->
+                <div id="guide-desktop" class="platform-guide-content">
+                    <div class="guide-steps-list">
+                        <div class="guide-step-item">
+                            <div class="step-badge">1</div>
+                            <div class="step-text">
+                                <strong>Look at the Address Bar</strong>
+                                <p>In Google Chrome, Microsoft Edge, or Brave, look at the right end of the address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">2</div>
+                            <div class="step-text">
+                                <strong>Click the Install Icon</strong>
+                                <p>Click the <strong>Install / Download</strong> icon <i data-lucide="download" class="inline-icon"></i> in the address bar.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step-item">
+                            <div class="step-badge">3</div>
+                            <div class="step-text">
+                                <strong>Launch as a Desktop Window</strong>
+                                <p>Click <strong>"Install"</strong> to launch Concentration Analyzer in its own dedicated window!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Highlights -->
+                <div class="get-app-features-grid">
+                    <div class="app-feat-item">
+                        <i data-lucide="zap"></i>
+                        <span>Instant Startup</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="camera"></i>
+                        <span>Camera Viewfinder</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="shield-check"></i>
+                        <span>Private User Data</span>
+                    </div>
+                    <div class="app-feat-item">
+                        <i data-lucide="hard-drive"></i>
+                        <span>0 MB App Store Download</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="btn-done-get-app" class="btn btn-ghost" type="button">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/app.js"></script>
 </body>
 </html>
