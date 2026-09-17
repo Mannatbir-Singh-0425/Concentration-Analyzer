@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=5000 \
+    PORT=10000 \
     DATABASE_PATH=database.db \
     MODEL_DIR=model
 
@@ -13,7 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libgomp1 \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -29,12 +28,8 @@ COPY . .
 # Create storage directories
 RUN mkdir -p /app/model /data/model && chmod -R 777 /app /data
 
-# Expose application port
-EXPOSE 5000
+# Expose Render standard port
+EXPOSE 10000
 
-# Health check to ensure service is alive
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/login || exit 1
-
-# Start production WSGI server
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 4 --threads 8 --worker-class gthread --worker-connections 1000 --backlog 2048 --timeout 120 app:app"]
+# Start production WSGI server (2 workers, 4 threads - tuned for 512MB RAM & high concurrency)
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 4 --timeout 120 app:app"]

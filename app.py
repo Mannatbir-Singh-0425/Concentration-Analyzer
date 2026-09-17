@@ -84,9 +84,22 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            security_question TEXT,
+            security_answer_hash TEXT,
+            recovery_key TEXT,
             created_at TEXT NOT NULL
         )
     """)
+
+    # Check and add security_question, security_answer_hash, recovery_key columns if missing
+    cursor.execute("PRAGMA table_info(users)")
+    user_cols = [r["name"] for r in cursor.fetchall()]
+    if "security_question" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN security_question TEXT")
+    if "security_answer_hash" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN security_answer_hash TEXT")
+    if "recovery_key" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN recovery_key TEXT")
 
     # 2. Categories Table
     cursor.execute("""
@@ -161,15 +174,36 @@ def init_db():
         """)
         cursor.execute("DROP TABLE categories_legacy")
 
-    # Create default demo user if no users exist
-    cursor.execute("SELECT id FROM users WHERE username = 'demo'")
+    # Create default demo user if no users exist, or update demo recovery info
+    cursor.execute("SELECT id, security_question, recovery_key FROM users WHERE username = 'demo'")
     demo_user = cursor.fetchone()
+    demo_sec_q = "What is the primary analyte for the starter assay?"
+    demo_sec_a = generate_password_hash("protein")
+    demo_rec_key = "QUANT-DEMO-2026-PASS"
     if not demo_user:
         hashed = generate_password_hash("demo123")
-        cursor.execute("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-                       ("demo", hashed, datetime.now().isoformat()))
+        cursor.execute("""
+            INSERT INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, ("demo", hashed, demo_sec_q, demo_sec_a, demo_rec_key, datetime.now().isoformat()))
         demo_user_id = cursor.lastrowid
         seed_starter_categories_for_user(demo_user_id, cursor)
+    else:
+        # Ensure demo user has recovery credentials populated
+        cursor.execute("""
+            UPDATE users SET security_question = COALESCE(security_question, ?),
+                             security_answer_hash = COALESCE(security_answer_hash, ?),
+                             recovery_key = COALESCE(recovery_key, ?)
+            WHERE username = 'demo'
+        """, (demo_sec_q, demo_sec_a, demo_rec_key))
+
+    # Ensure all existing users have a recovery_key if missing
+    cursor.execute("SELECT id, username FROM users WHERE recovery_key IS NULL OR recovery_key = ''")
+    users_missing_key = cursor.fetchall()
+    for u in users_missing_key:
+        import secrets
+        gen_key = f"QUANT-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}"
+        cursor.execute("UPDATE users SET recovery_key = ? WHERE id = ?", (gen_key, u["id"]))
 
     conn.commit()
     conn.close()
@@ -300,12 +334,19 @@ def login_page():
     return render_template("login.html")
 
 
+def generate_recovery_key():
+    import secrets
+    return f"QUANT-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}"
+
+
 @app.route("/api/register", methods=["POST"])
 def register():
     """Register a new user and isolate their data."""
     data = request.get_json() or {}
     username = data.get("username", "").strip().lower()
     password = data.get("password", "").strip()
+    security_question = data.get("security_question", "").strip()
+    security_answer = data.get("security_answer", "").strip().lower()
 
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
@@ -324,8 +365,13 @@ def register():
         return jsonify({"error": f"Username '{username}' is already taken. Please choose another."}), 400
 
     hashed_pw = generate_password_hash(password)
-    cursor.execute("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-                   (username, hashed_pw, datetime.now().isoformat()))
+    hashed_answer = generate_password_hash(security_answer) if security_answer else None
+    recovery_key = generate_recovery_key()
+
+    cursor.execute("""
+        INSERT INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (username, hashed_pw, security_question or None, hashed_answer, recovery_key, datetime.now().isoformat()))
     new_user_id = cursor.lastrowid
 
     # Seed starter categories for new user
@@ -339,7 +385,94 @@ def register():
 
     return jsonify({
         "message": "Registration successful!",
-        "user": {"id": new_user_id, "username": username}
+        "user": {"id": new_user_id, "username": username},
+        "recovery_key": recovery_key
+    })
+
+
+@app.route("/api/recover/lookup", methods=["POST"])
+def recover_lookup():
+    """Find user and return their security question or recovery options."""
+    data = request.get_json() or {}
+    username = data.get("username", "").strip().lower()
+
+    if not username:
+        return jsonify({"error": "Please enter your username"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, security_question, security_answer_hash, recovery_key FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        return jsonify({"error": f"No account found with username '{username}'"}), 404
+
+    has_q = bool(user["security_question"] and user["security_answer_hash"])
+    return jsonify({
+        "username": user["username"],
+        "has_security_question": has_q,
+        "security_question": user["security_question"] if has_q else "Security question not set on this account (use recovery key)",
+        "has_recovery_key": bool(user["recovery_key"])
+    })
+
+
+@app.route("/api/recover/reset", methods=["POST"])
+def recover_reset():
+    """Reset user password via verified security question or emergency recovery key."""
+    data = request.get_json() or {}
+    username = data.get("username", "").strip().lower()
+    method = data.get("method", "question").strip().lower()
+    answer = data.get("answer", "").strip()
+    new_password = data.get("new_password", "").strip()
+
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    if not answer:
+        return jsonify({"error": "Please provide the security answer or recovery key"}), 400
+
+    if not new_password or len(new_password) < 4:
+        return jsonify({"error": "New password must be at least 4 characters long"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, security_question, security_answer_hash, recovery_key FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"error": "Account not found"}), 404
+
+    verified = False
+    if method == "key":
+        input_clean = answer.replace("-", "").replace(" ", "").upper()
+        stored_clean = (user["recovery_key"] or "").replace("-", "").replace(" ", "").upper()
+        if stored_clean and input_clean == stored_clean:
+            verified = True
+    else:
+        if user["security_answer_hash"] and check_password_hash(user["security_answer_hash"], answer.lower()):
+            verified = True
+
+    if not verified:
+        conn.close()
+        detail = "Recovery key does not match." if method == "key" else "Incorrect security answer."
+        return jsonify({"error": f"Verification failed: {detail}"}), 401
+
+    new_recovery_key = generate_recovery_key()
+    new_hashed_pw = generate_password_hash(new_password)
+    cursor.execute("UPDATE users SET password_hash = ?, recovery_key = ? WHERE id = ?",
+                   (new_hashed_pw, new_recovery_key, user["id"]))
+    conn.commit()
+    conn.close()
+
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+
+    return jsonify({
+        "message": f"Password reset successfully! Logged in as {user['username']}.",
+        "user": {"id": user["id"], "username": user["username"]},
+        "new_recovery_key": new_recovery_key
     })
 
 

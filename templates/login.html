@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <meta name="theme-color" content="#0a0d14">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,34 +27,61 @@
             <!-- Brand Header -->
             <div class="auth-brand">
                 <div class="brand-icon-box large">
-                    <i data-lucide="flask-conical"></i>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/>
+                        <path d="M8.5 2h7"/>
+                        <path d="M7 16h10"/>
+                    </svg>
                 </div>
-                <h1 class="auth-title">Concentration Analyzer</h1>
-                <p class="auth-subtitle">Photographic Assay & Concentration Predictor</p>
+                <h1 id="auth-main-title" class="auth-title">Concentration Analyzer</h1>
+                <p id="auth-main-subtitle" class="auth-subtitle">Photographic Assay & Concentration Predictor</p>
             </div>
 
             <!-- Tab Switcher: Sign In vs Create Account -->
-            <div class="auth-tabs">
+            <div id="auth-tabs-container" class="auth-tabs">
                 <button id="tab-signin" class="auth-tab-btn active" type="button">
-                    <i data-lucide="log-in"></i> Sign In
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <polyline points="10 17 15 12 10 7"/>
+                        <line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                    <span>Sign In</span>
                 </button>
                 <button id="tab-register" class="auth-tab-btn" type="button">
-                    <i data-lucide="user-plus"></i> Create Account
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="19" y1="8" x2="19" y2="14"/>
+                        <line x1="22" y1="11" x2="16" y2="11"/>
+                    </svg>
+                    <span>Create Account</span>
                 </button>
             </div>
 
             <!-- Alert Box for Error / Success Messages -->
             <div id="auth-alert" class="auth-alert hidden">
-                <i data-lucide="alert-circle" id="alert-icon"></i>
+                <span id="alert-icon-wrapper">
+                    <svg id="alert-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </span>
                 <span id="alert-message">Error message here</span>
             </div>
 
-            <!-- Auth Form -->
-            <form id="auth-form" autocomplete="off">
+            <!-- ========================================================= -->
+            <!-- 1. SIGN IN & CREATE ACCOUNT FORM                          -->
+            <!-- ========================================================= -->
+            <form id="auth-form" onsubmit="return false;" autocomplete="off">
+                <!-- Username Field -->
                 <div class="form-group">
                     <label for="username" class="form-label">Username</label>
                     <div class="input-with-icon">
-                        <i data-lucide="user" class="input-icon"></i>
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
                         <input 
                             type="text" 
                             id="username" 
@@ -67,12 +95,19 @@
                     </div>
                 </div>
 
+                <!-- Password Field -->
                 <div class="form-group">
                     <div class="label-row">
                         <label for="password" class="form-label">Password</label>
+                        <button type="button" id="btn-forgot-password-link" class="auth-link-btn" title="Recover your account password">
+                            Forgot Password?
+                        </button>
                     </div>
                     <div class="input-with-icon">
-                        <i data-lucide="lock" class="input-icon"></i>
+                        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
                         <input 
                             type="password" 
                             id="password" 
@@ -82,158 +117,804 @@
                             required 
                             autocomplete="current-password"
                         >
-                        <button type="button" id="btn-toggle-password" class="input-action-btn" title="Show/Hide Password">
-                            <i data-lucide="eye" id="toggle-password-icon"></i>
+                        <button type="button" class="input-action-btn btn-toggle-pw" data-target="password" title="Show/Hide Password" aria-label="Show/Hide Password">
+                            <!-- Eye Open (default) -->
+                            <svg class="pw-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <!-- Eye Closed (hidden by default) -->
+                            <svg class="pw-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m9.88 9.88 4.24 4.24m-7.07-7.07L2 2m15.05 15.05L22 22"/>
+                                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                            </svg>
                         </button>
                     </div>
                 </div>
 
-                <button type="submit" id="btn-submit" class="btn btn-primary auth-submit-btn">
+                <!-- Registration-Specific Fields (Hidden in Sign In Mode) -->
+                <div id="register-fields-container" class="hidden">
+                    <!-- Confirm Password -->
+                    <div class="form-group">
+                        <label for="confirm-password" class="form-label">Confirm Password</label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="confirm-password" 
+                                class="form-input auth-input" 
+                                placeholder="Re-enter your password" 
+                                autocomplete="new-password"
+                            >
+                            <button type="button" class="input-action-btn btn-toggle-pw" data-target="confirm-password" title="Show/Hide Password" aria-label="Show/Hide Password">
+                                <svg class="pw-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                                <svg class="pw-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m9.88 9.88 4.24 4.24m-7.07-7.07L2 2m15.05 15.05L22 22"/>
+                                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Security Question Dropdown -->
+                    <div class="form-group">
+                        <label for="security-question-select" class="form-label">
+                            Security Question <span class="badge-optional">(For Password Recovery)</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            <select id="security-question-select" class="form-input auth-input auth-select">
+                                <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                                <option value="In what city or town were you born?">In what city or town were you born?</option>
+                                <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                                <option value="What is your favorite laboratory chemical or compound?">What is your favorite laboratory chemical or compound?</option>
+                                <option value="What was the model of your first phone or car?">What was the model of your first phone or car?</option>
+                                <option value="custom">-- Type a custom question --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Custom Question Input (if custom selected) -->
+                    <div id="custom-question-container" class="form-group hidden">
+                        <label for="custom-security-question" class="form-label">Your Custom Security Question</label>
+                        <input 
+                            type="text" 
+                            id="custom-security-question" 
+                            class="form-input auth-input" 
+                            placeholder="e.g. What is my secret laboratory project code?"
+                        >
+                    </div>
+
+                    <!-- Security Answer Input -->
+                    <div class="form-group">
+                        <label for="security-answer" class="form-label">Security Answer</label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m21 2-2 2m-6 6 7 7-3 3-7-7"/>
+                                <circle cx="7.5" cy="16.5" r="3.5"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="security-answer" 
+                                class="form-input auth-input" 
+                                placeholder="Enter your secret answer"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Recovery Key Announcement Box -->
+                <div id="registered-key-box" class="recovery-key-banner hidden">
+                    <div class="recovery-key-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                        </svg>
+                        <span>Emergency Recovery Key Created</span>
+                    </div>
+                    <p class="recovery-key-hint">Keep this key safe! You can use it anytime to restore your account if you forget your password.</p>
+                    <div id="new-account-key-text" class="recovery-key-code">QUANT-XXXX-XXXX-XXXX</div>
+                    <div>
+                        <button type="button" id="btn-copy-registered-key" class="btn-copy-key">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            <span>Copy Recovery Key</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="button" id="btn-submit" class="btn btn-primary auth-submit-btn">
                     <span id="submit-text">Sign In</span>
-                    <i data-lucide="arrow-right" id="submit-icon"></i>
+                    <svg id="submit-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                        <polyline points="12 5 19 12 12 19"/>
+                    </svg>
                 </button>
             </form>
 
-            <!-- 1-Click Quick Demo Login Section -->
-            <div class="demo-login-box">
+            <!-- ========================================================= -->
+            <!-- 2. PASSWORD RECOVERY CONTAINER (HIDDEN BY DEFAULT)        -->
+            <!-- ========================================================= -->
+            <div id="recovery-container" class="hidden">
+                <!-- Recovery Step 1: Find Account by Username -->
+                <div id="recovery-step-1">
+                    <p class="demo-desc" style="text-align: left; margin-bottom: 16px;">
+                        Enter your username below to locate your security credentials and reset your password:
+                    </p>
+                    <div class="form-group">
+                        <label for="recovery-username" class="form-label">Account Username</label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <input 
+                                type="text" 
+                                id="recovery-username" 
+                                class="form-input auth-input" 
+                                placeholder="Enter username (e.g. demo)" 
+                                autofocus
+                            >
+                        </div>
+                    </div>
+                    <button type="button" id="btn-recovery-lookup" class="btn btn-primary auth-submit-btn">
+                        <span>Find My Account</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Recovery Step 2: Answer Question or Enter Recovery Key -->
+                <div id="recovery-step-2" class="hidden">
+                    <!-- Method Switcher -->
+                    <div class="recovery-subtabs">
+                        <button type="button" id="tab-recovery-question" class="recovery-subtab-btn active">
+                            <span>Security Question</span>
+                        </button>
+                        <button type="button" id="tab-recovery-key" class="recovery-subtab-btn">
+                            <span>Recovery Key</span>
+                        </button>
+                    </div>
+
+                    <!-- Panel A: Security Question Answer -->
+                    <div id="panel-recovery-question">
+                        <div class="form-group">
+                            <label class="form-label">Security Question</label>
+                            <div id="display-security-question" class="recovery-key-hint" style="font-size: 13px; color: #f8fafc; font-weight: 600; padding: 10px; background: rgba(0,0,0,0.3); border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 10px;">
+                                Loading security question...
+                            </div>
+                            <label for="recovery-answer-input" class="form-label">Your Answer</label>
+                            <div class="input-with-icon">
+                                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m21 2-2 2m-6 6 7 7-3 3-7-7"/>
+                                    <circle cx="7.5" cy="16.5" r="3.5"/>
+                                </svg>
+                                <input 
+                                    type="text" 
+                                    id="recovery-answer-input" 
+                                    class="form-input auth-input" 
+                                    placeholder="Enter your security answer"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel B: Emergency Recovery Key -->
+                    <div id="panel-recovery-key" class="hidden">
+                        <div class="form-group">
+                            <label for="recovery-key-input" class="form-label">16-Character Emergency Recovery Key</label>
+                            <div class="input-with-icon">
+                                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                </svg>
+                                <input 
+                                    type="text" 
+                                    id="recovery-key-input" 
+                                    class="form-input auth-input" 
+                                    placeholder="e.g. QUANT-A1B2-C3D4-E5F6"
+                                    style="font-family: var(--font-mono); letter-spacing: 1px;"
+                                >
+                            </div>
+                            <p class="recovery-key-hint">For demo user, default recovery key is: <code>QUANT-DEMO-2026-PASS</code></p>
+                        </div>
+                    </div>
+
+                    <!-- New Password Input -->
+                    <div class="form-group">
+                        <label for="recovery-new-password" class="form-label">New Password</label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="recovery-new-password" 
+                                class="form-input auth-input" 
+                                placeholder="Enter at least 4 characters"
+                            >
+                            <button type="button" class="input-action-btn btn-toggle-pw" data-target="recovery-new-password" title="Show/Hide Password" aria-label="Show/Hide Password">
+                                <svg class="pw-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                                <svg class="pw-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m9.88 9.88 4.24 4.24m-7.07-7.07L2 2m15.05 15.05L22 22"/>
+                                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Confirm New Password -->
+                    <div class="form-group">
+                        <label for="recovery-confirm-password" class="form-label">Confirm New Password</label>
+                        <div class="input-with-icon">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                            <input 
+                                type="password" 
+                                id="recovery-confirm-password" 
+                                class="form-input auth-input" 
+                                placeholder="Re-enter new password"
+                            >
+                            <button type="button" class="input-action-btn btn-toggle-pw" data-target="recovery-confirm-password" title="Show/Hide Password" aria-label="Show/Hide Password">
+                                <svg class="pw-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                                <svg class="pw-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m9.88 9.88 4.24 4.24m-7.07-7.07L2 2m15.05 15.05L22 22"/>
+                                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="button" id="btn-recovery-submit" class="btn btn-primary auth-submit-btn">
+                        <span>Reset Password & Enter Lab</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Back to Sign In Link -->
+                <div class="auth-secondary-actions">
+                    <button type="button" id="btn-back-to-signin" class="auth-link-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"/>
+                            <polyline points="12 19 5 12 12 5"/>
+                        </svg>
+                        <span>Back to Sign In</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 1-Click Quick Demo Login Section (Visible only in Sign In mode) -->
+            <div id="demo-login-wrapper" class="demo-login-box">
                 <div class="demo-divider">
                     <span>OR USE DEMO ACCOUNT</span>
                 </div>
                 <p class="demo-desc">Want to test right away without creating an account? Use the pre-seeded demo user with calibrated standards:</p>
                 <button type="button" id="btn-demo-login" class="btn btn-demo">
-                    <i data-lucide="zap"></i>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
                     <span>⚡ 1-Click Demo Login (demo / demo123)</span>
                 </button>
             </div>
 
             <!-- Privacy Note -->
             <div class="auth-footer-note">
-                <i data-lucide="shield-check"></i>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
                 <span>All training samples, calibration curves, and predictions are strictly isolated to your user account.</span>
             </div>
         </div>
     </div>
 
+    <!-- SCRIPT LOGIC -->
     <script>
-        lucide.createIcons();
+        // Safe Lucide icon initializer
+        function refreshIcons() {
+            try {
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            } catch (e) {
+                console.warn("Lucide non-fatal:", e);
+            }
+        }
+        refreshIcons();
 
-        let currentMode = 'login'; // 'login' or 'register'
+        // UI Modes: 'login', 'register', or 'recovery'
+        let currentMode = 'login';
+        let recoveryActiveMethod = 'question'; // 'question' or 'key'
+        let recoveredUsername = '';
 
+        // Elements
         const tabSignin = document.getElementById('tab-signin');
         const tabRegister = document.getElementById('tab-register');
+        const authTabsContainer = document.getElementById('auth-tabs-container');
         const authForm = document.getElementById('auth-form');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
+        const registerFields = document.getElementById('register-fields-container');
+        const recoveryContainer = document.getElementById('recovery-container');
+        const recoveryStep1 = document.getElementById('recovery-step-1');
+        const recoveryStep2 = document.getElementById('recovery-step-2');
+        const demoLoginWrapper = document.getElementById('demo-login-wrapper');
+
+        const mainTitle = document.getElementById('auth-main-title');
+        const mainSubtitle = document.getElementById('auth-main-subtitle');
         const submitBtn = document.getElementById('btn-submit');
         const submitText = document.getElementById('submit-text');
         const authAlert = document.getElementById('auth-alert');
         const alertMessage = document.getElementById('alert-message');
-        const demoBtn = document.getElementById('btn-demo-login');
-        const togglePasswordBtn = document.getElementById('btn-toggle-password');
-        const togglePasswordIcon = document.getElementById('toggle-password-icon');
 
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const secQuestionSelect = document.getElementById('security-question-select');
+        const customQuestionContainer = document.getElementById('custom-question-container');
+        const customQuestionInput = document.getElementById('custom-security-question');
+        const secAnswerInput = document.getElementById('security-answer');
+
+        const registeredKeyBox = document.getElementById('registered-key-box');
+        const newAccountKeyText = document.getElementById('new-account-key-text');
+        const btnCopyRegisteredKey = document.getElementById('btn-copy-registered-key');
+
+        const forgotPasswordLink = document.getElementById('btn-forgot-password-link');
+        const backToSigninBtn = document.getElementById('btn-back-to-signin');
+        const demoBtn = document.getElementById('btn-demo-login');
+
+        const recoveryUsernameInput = document.getElementById('recovery-username');
+        const btnRecoveryLookup = document.getElementById('btn-recovery-lookup');
+        const tabRecoveryQuestion = document.getElementById('tab-recovery-question');
+        const tabRecoveryKey = document.getElementById('tab-recovery-key');
+        const panelRecoveryQuestion = document.getElementById('panel-recovery-question');
+        const panelRecoveryKey = document.getElementById('panel-recovery-key');
+        const displaySecQuestion = document.getElementById('display-security-question');
+        const recoveryAnswerInput = document.getElementById('recovery-answer-input');
+        const recoveryKeyInput = document.getElementById('recovery-key-input');
+        const recoveryNewPassword = document.getElementById('recovery-new-password');
+        const recoveryConfirmPassword = document.getElementById('recovery-confirm-password');
+        const btnRecoverySubmit = document.getElementById('btn-recovery-submit');
+
+        // =====================================================================
+        // PASSWORD SHOW / HIDE TOGGLE (UNIVERSAL)
+        // =====================================================================
+        document.querySelectorAll('.btn-toggle-pw').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = btn.getAttribute('data-target');
+                const targetInput = document.getElementById(targetId);
+                if (!targetInput) return;
+
+                const eyeOpen = btn.querySelector('.pw-eye-open');
+                const eyeClosed = btn.querySelector('.pw-eye-closed');
+
+                if (targetInput.type === 'password') {
+                    targetInput.type = 'text';
+                    if (eyeOpen) eyeOpen.classList.add('hidden');
+                    if (eyeClosed) eyeClosed.classList.remove('hidden');
+                    btn.setAttribute('title', 'Hide password');
+                } else {
+                    targetInput.type = 'password';
+                    if (eyeOpen) eyeOpen.classList.remove('hidden');
+                    if (eyeClosed) eyeClosed.classList.add('hidden');
+                    btn.setAttribute('title', 'Show password');
+                }
+            });
+        });
+
+        // =====================================================================
+        // MODE SWITCHER: LOGIN vs REGISTER vs RECOVERY
+        // =====================================================================
         function setMode(mode) {
             currentMode = mode;
             hideAlert();
+
             if (mode === 'login') {
+                authTabsContainer.classList.remove('hidden');
                 tabSignin.classList.add('active');
                 tabRegister.classList.remove('active');
+                authForm.classList.remove('hidden');
+                registerFields.classList.add('hidden');
+                recoveryContainer.classList.add('hidden');
+                demoLoginWrapper.classList.remove('hidden');
+                registeredKeyBox.classList.add('hidden');
+
+                mainTitle.textContent = 'Concentration Analyzer';
+                mainSubtitle.textContent = 'Photographic Assay & Concentration Predictor';
                 submitText.textContent = 'Sign In';
                 document.title = 'Sign In // Concentration Analyzer';
-            } else {
+                usernameInput.focus();
+            } else if (mode === 'register') {
+                authTabsContainer.classList.remove('hidden');
                 tabRegister.classList.add('active');
                 tabSignin.classList.remove('active');
+                authForm.classList.remove('hidden');
+                registerFields.classList.remove('hidden');
+                recoveryContainer.classList.add('hidden');
+                demoLoginWrapper.classList.add('hidden');
+                registeredKeyBox.classList.add('hidden');
+
+                mainTitle.textContent = 'Create Account';
+                mainSubtitle.textContent = 'Setup your private laboratory workspace';
                 submitText.textContent = 'Create Account & Enter';
                 document.title = 'Create Account // Concentration Analyzer';
+                usernameInput.focus();
+            } else if (mode === 'recovery') {
+                authTabsContainer.classList.add('hidden');
+                authForm.classList.add('hidden');
+                recoveryContainer.classList.remove('hidden');
+                demoLoginWrapper.classList.add('hidden');
+
+                recoveryStep1.classList.remove('hidden');
+                recoveryStep2.classList.add('hidden');
+
+                mainTitle.textContent = 'Account Recovery';
+                mainSubtitle.textContent = 'Reset your password via security question or backup key';
+                document.title = 'Password Recovery // Concentration Analyzer';
+                recoveryUsernameInput.focus();
             }
-            lucide.createIcons();
-            usernameInput.focus();
+
+            refreshIcons();
         }
 
         tabSignin.addEventListener('click', () => setMode('login'));
         tabRegister.addEventListener('click', () => setMode('register'));
+        forgotPasswordLink.addEventListener('click', () => setMode('recovery'));
+        backToSigninBtn.addEventListener('click', () => setMode('login'));
 
-        // Toggle password visibility
-        togglePasswordBtn.addEventListener('click', () => {
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                togglePasswordIcon.setAttribute('data-lucide', 'eye-off');
+        // Custom question toggle
+        secQuestionSelect.addEventListener('change', () => {
+            if (secQuestionSelect.value === 'custom') {
+                customQuestionContainer.classList.remove('hidden');
+                customQuestionInput.focus();
             } else {
-                passwordInput.type = 'password';
-                togglePasswordIcon.setAttribute('data-lucide', 'eye');
+                customQuestionContainer.classList.add('hidden');
             }
-            lucide.createIcons();
         });
 
+        // Copy Recovery Key button
+        btnCopyRegisteredKey.addEventListener('click', () => {
+            const key = newAccountKeyText.textContent.trim();
+            navigator.clipboard.writeText(key).then(() => {
+                btnCopyRegisteredKey.querySelector('span').textContent = 'Copied to Clipboard!';
+                setTimeout(() => {
+                    btnCopyRegisteredKey.querySelector('span').textContent = 'Copy Recovery Key';
+                }, 2000);
+            }).catch(() => {
+                alert("Recovery key: " + key);
+            });
+        });
+
+        // =====================================================================
+        // ALERTS HELPER
+        // =====================================================================
         function showAlert(msg, isSuccess = false) {
             authAlert.className = `auth-alert ${isSuccess ? 'success' : 'error'}`;
             alertMessage.textContent = msg;
             authAlert.classList.remove('hidden');
-            const iconEl = document.getElementById('alert-icon');
-            if (iconEl) {
-                iconEl.setAttribute('data-lucide', isSuccess ? 'check-circle-2' : 'alert-circle');
-                lucide.createIcons();
-            }
         }
 
         function hideAlert() {
             authAlert.classList.add('hidden');
         }
 
-        async function submitAuth(username, password, endpoint) {
-            hideAlert();
-            submitBtn.disabled = true;
-            const originalText = submitText.textContent;
-            submitText.textContent = 'Authenticating...';
-
-            try {
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                    showAlert(data.error || 'Authentication failed. Please try again.');
-                    submitBtn.disabled = false;
-                    submitText.textContent = originalText;
-                    return;
-                }
-
-                showAlert(data.message || 'Success! Loading analyzer...', true);
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 400);
-
-            } catch (err) {
-                showAlert('Network error: Unable to reach server. Please try again.');
-                submitBtn.disabled = false;
-                submitText.textContent = originalText;
+        // =====================================================================
+        // SUBMIT: LOGIN & REGISTER
+        // =====================================================================
+        submitBtn.addEventListener('click', handleAuthSubmit);
+        authForm.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAuthSubmit();
             }
-        }
+        });
 
-        // Handle regular form submit
-        authForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = usernameInput.value.trim();
+        async function handleAuthSubmit() {
+            hideAlert();
+            const username = usernameInput.value.trim().toLowerCase();
             const password = passwordInput.value.trim();
 
-            if (!username || !password) {
-                showAlert('Please enter both username and password.');
+            if (!username) {
+                showAlert('Please enter your username.');
+                usernameInput.focus();
                 return;
             }
 
-            const endpoint = currentMode === 'login' ? '/api/login' : '/api/register';
-            await submitAuth(username, password, endpoint);
-        });
+            if (!password) {
+                showAlert('Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
 
-        // 1-Click Demo Login
+            if (currentMode === 'login') {
+                // SIGN IN
+                submitBtn.disabled = true;
+                const origText = submitText.textContent;
+                submitText.textContent = 'Authenticating...';
+
+                try {
+                    const res = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        showAlert(data.error || 'Authentication failed. Please check your credentials.');
+                        submitBtn.disabled = false;
+                        submitText.textContent = origText;
+                        return;
+                    }
+
+                    showAlert(data.message || 'Login successful! Loading workspace...', true);
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 400);
+
+                } catch (err) {
+                    showAlert('Network error: Unable to reach server. Please check connection.');
+                    submitBtn.disabled = false;
+                    submitText.textContent = origText;
+                }
+
+            } else {
+                // CREATE ACCOUNT
+                const confirmPassword = confirmPasswordInput.value.trim();
+                if (password !== confirmPassword) {
+                    showAlert('Passwords do not match. Please verify your password.');
+                    confirmPasswordInput.focus();
+                    return;
+                }
+
+                let secQuestion = secQuestionSelect.value;
+                if (secQuestion === 'custom') {
+                    secQuestion = customQuestionInput.value.trim();
+                }
+                const secAnswer = secAnswerInput.value.trim();
+
+                submitBtn.disabled = true;
+                const origText = submitText.textContent;
+                submitText.textContent = 'Creating Account...';
+
+                try {
+                    const res = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username,
+                            password,
+                            security_question: secQuestion,
+                            security_answer: secAnswer
+                        })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        showAlert(data.error || 'Registration failed. Please try a different username.');
+                        submitBtn.disabled = false;
+                        submitText.textContent = origText;
+                        return;
+                    }
+
+                    showAlert('Account created successfully! Welcome to Concentration Analyzer.', true);
+
+                    if (data.recovery_key) {
+                        newAccountKeyText.textContent = data.recovery_key;
+                        registeredKeyBox.classList.remove('hidden');
+                        submitText.textContent = 'Loading Workspace...';
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 2500);
+                    } else {
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 600);
+                    }
+
+                } catch (err) {
+                    showAlert('Network error during registration. Please try again.');
+                    submitBtn.disabled = false;
+                    submitText.textContent = origText;
+                }
+            }
+        }
+
+        // =====================================================================
+        // 1-CLICK DEMO LOGIN
+        // =====================================================================
         demoBtn.addEventListener('click', async () => {
             usernameInput.value = 'demo';
             passwordInput.value = 'demo123';
-            await submitAuth('demo', 'demo123', '/api/login');
+            hideAlert();
+            demoBtn.disabled = true;
+            demoBtn.querySelector('span').textContent = 'Logging in demo user...';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'demo', password: 'demo123' })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Demo login failed.');
+                    demoBtn.disabled = false;
+                    demoBtn.querySelector('span').textContent = '⚡ 1-Click Demo Login (demo / demo123)';
+                    return;
+                }
+
+                showAlert('Demo login success! Launching lab...', true);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 350);
+            } catch (e) {
+                showAlert('Network error: Unable to connect to server.');
+                demoBtn.disabled = false;
+                demoBtn.querySelector('span').textContent = '⚡ 1-Click Demo Login (demo / demo123)';
+            }
+        });
+
+        // =====================================================================
+        // PASSWORD RECOVERY FLOW
+        // =====================================================================
+        // Step 1: Lookup User
+        btnRecoveryLookup.addEventListener('click', async () => {
+            hideAlert();
+            const username = recoveryUsernameInput.value.trim().toLowerCase();
+            if (!username) {
+                showAlert('Please enter your username.');
+                recoveryUsernameInput.focus();
+                return;
+            }
+
+            btnRecoveryLookup.disabled = true;
+            btnRecoveryLookup.querySelector('span').textContent = 'Searching...';
+
+            try {
+                const res = await fetch('/api/recover/lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Account not found. Please check spelling.');
+                    btnRecoveryLookup.disabled = false;
+                    btnRecoveryLookup.querySelector('span').textContent = 'Find My Account';
+                    return;
+                }
+
+                recoveredUsername = data.username;
+                displaySecQuestion.textContent = data.security_question || 'No question set. Please use your recovery key.';
+
+                // Switch to Step 2
+                recoveryStep1.classList.add('hidden');
+                recoveryStep2.classList.remove('hidden');
+
+                if (!data.has_security_question && data.has_recovery_key) {
+                    // Automatically switch to key panel if question not configured
+                    switchRecoveryMethod('key');
+                } else {
+                    switchRecoveryMethod('question');
+                }
+
+            } catch (e) {
+                showAlert('Network error while looking up account.');
+                btnRecoveryLookup.disabled = false;
+                btnRecoveryLookup.querySelector('span').textContent = 'Find My Account';
+            }
+        });
+
+        function switchRecoveryMethod(method) {
+            recoveryActiveMethod = method;
+            if (method === 'question') {
+                tabRecoveryQuestion.classList.add('active');
+                tabRecoveryKey.classList.remove('active');
+                panelRecoveryQuestion.classList.remove('hidden');
+                panelRecoveryKey.classList.add('hidden');
+                recoveryAnswerInput.focus();
+            } else {
+                tabRecoveryKey.classList.add('active');
+                tabRecoveryQuestion.classList.remove('active');
+                panelRecoveryKey.classList.remove('hidden');
+                panelRecoveryQuestion.classList.add('hidden');
+                recoveryKeyInput.focus();
+            }
+        }
+
+        tabRecoveryQuestion.addEventListener('click', () => switchRecoveryMethod('question'));
+        tabRecoveryKey.addEventListener('click', () => switchRecoveryMethod('key'));
+
+        // Step 2: Submit Password Reset
+        btnRecoverySubmit.addEventListener('click', async () => {
+            hideAlert();
+            const answer = recoveryActiveMethod === 'question' 
+                ? recoveryAnswerInput.value.trim() 
+                : recoveryKeyInput.value.trim();
+            const newPassword = recoveryNewPassword.value.trim();
+            const confirmNewPassword = recoveryConfirmPassword.value.trim();
+
+            if (!answer) {
+                showAlert(recoveryActiveMethod === 'question' ? 'Please answer your security question.' : 'Please enter your emergency recovery key.');
+                return;
+            }
+
+            if (!newPassword || newPassword.length < 4) {
+                showAlert('New password must be at least 4 characters long.');
+                recoveryNewPassword.focus();
+                return;
+            }
+
+            if (newPassword !== confirmNewPassword) {
+                showAlert('Passwords do not match. Please check confirmation.');
+                recoveryConfirmPassword.focus();
+                return;
+            }
+
+            btnRecoverySubmit.disabled = true;
+            btnRecoverySubmit.querySelector('span').textContent = 'Resetting Password...';
+
+            try {
+                const res = await fetch('/api/recover/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: recoveredUsername,
+                        method: recoveryActiveMethod,
+                        answer: answer,
+                        new_password: newPassword
+                    })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showAlert(data.error || 'Verification failed. Please check your answer or key.');
+                    btnRecoverySubmit.disabled = false;
+                    btnRecoverySubmit.querySelector('span').textContent = 'Reset Password & Enter Lab';
+                    return;
+                }
+
+                showAlert(data.message || 'Password reset successfully! Loading workspace...', true);
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 500);
+
+            } catch (e) {
+                showAlert('Network error while resetting password.');
+                btnRecoverySubmit.disabled = false;
+                btnRecoverySubmit.querySelector('span').textContent = 'Reset Password & Enter Lab';
+            }
         });
     </script>
 </body>

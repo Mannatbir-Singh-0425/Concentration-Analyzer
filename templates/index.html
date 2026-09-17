@@ -131,6 +131,20 @@
                         </div>
                     </div>
 
+                    <!-- Active Category Standards Status Banner -->
+                    <div id="train-current-status-banner" class="category-status-banner hidden" style="margin-bottom: 20px; padding: 12px 18px; border-radius: var(--radius-md); background: rgba(0, 242, 254, 0.08); border: 1px solid rgba(0, 242, 254, 0.25); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i data-lucide="check-circle-2" style="color: var(--accent-green); width: 20px; height: 20px; flex-shrink: 0;"></i>
+                            <span style="font-size: 13px;">
+                                Active Substance: <strong id="train-status-cat-name" style="color: var(--primary);">--</strong> currently has <strong id="train-status-sample-count" style="color: #ffffff;">0 standards</strong> calibrated <span id="train-status-r2" style="color: var(--text-secondary); font-size: 12px;"></span>.
+                            </span>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-xs" onclick="switchTab('place-samples')">
+                            <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
+                            <span>View Standards & Curve in Step 2 &rarr;</span>
+                        </button>
+                    </div>
+
                     <form id="train-form" class="train-form">
                         <div class="form-row">
                             <div class="form-group flex-1">

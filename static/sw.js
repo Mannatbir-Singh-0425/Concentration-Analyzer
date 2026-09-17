@@ -3,7 +3,7 @@
  * Enables offline shell, instant loading, and installability on Android, iOS & Desktop.
  */
 
-const CACHE_NAME = 'quantlab-cache-v1';
+const CACHE_NAME = 'quantlab-cache-v3';
 const PRECACHE_ASSETS = [
     '/',
     '/login',
@@ -49,8 +49,9 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch strategy:
-// - Network-first for dynamic API routes (/api/*)
-// - Cache-first with network fallback for static assets
+// - Always bypass cache for API routes (/api/*)
+// - Network-first for HTML pages (ensures fresh login and app views)
+// - Cache-first with background revalidation for static assets (CSS, JS, icons)
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
@@ -59,10 +60,30 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    const isHtml = event.request.mode === 'navigate' || 
+                   (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
+
+    if (isHtml) {
+        // Network-First for HTML pages
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/login')))
+        );
+        return;
+    }
+
+    // Cache-first for static assets
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) {
-                // Return cached asset and update in background
+                // Background update
                 fetch(event.request).then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200) {
                         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
@@ -80,11 +101,6 @@ self.addEventListener('fetch', (event) => {
                     cache.put(event.request, responseToCache);
                 });
                 return response;
-            }).catch(() => {
-                // If offline and requesting an HTML page, return cached root or login
-                if (event.request.headers.get('accept').includes('text/html')) {
-                    return caches.match('/');
-                }
             });
         })
     );

@@ -260,8 +260,36 @@ async function loadCategories() {
         categories = data.categories || [];
 
         populateCategoryDropdowns();
+
+        if (categories.length > 0) {
+            const active = categories.find(c => c.name === currentCategory) || categories[0];
+            updateTrainStatusBanner(active);
+            await loadCategorySamples(active.name);
+        }
     } catch (err) {
         console.error("Error loading categories:", err);
+    }
+}
+
+function updateTrainStatusBanner(cat) {
+    const banner = document.getElementById('train-current-status-banner');
+    if (!banner) return;
+
+    if (!cat) {
+        cat = categories.find(c => c.name === currentCategory);
+    }
+
+    const catNameEl = document.getElementById('train-status-cat-name');
+    const sampleCountEl = document.getElementById('train-status-sample-count');
+    const r2El = document.getElementById('train-status-r2');
+
+    if (cat) {
+        banner.classList.remove('hidden');
+        if (catNameEl) catNameEl.textContent = cat.name;
+        if (sampleCountEl) sampleCountEl.textContent = `${cat.sample_count || 0} standards`;
+        if (r2El) {
+            r2El.textContent = cat.trained ? `(Model Calibrated, R² ${cat.r2_score || '0.99'})` : '(Not calibrated yet)';
+        }
     }
 }
 
@@ -271,6 +299,8 @@ function populateCategoryDropdowns() {
     const predictSelect = document.getElementById('predict-category-select');
     const trainCatInput = document.getElementById('train-category-input');
     const trainUnitInput = document.getElementById('train-unit-input');
+
+    if (!globalSelect || !filterSelect || !predictSelect) return;
 
     globalSelect.innerHTML = '';
     filterSelect.innerHTML = '';
@@ -284,7 +314,7 @@ function populateCategoryDropdowns() {
 
         const opt2 = document.createElement('option');
         opt2.value = cat.name;
-        opt2.textContent = `${cat.name} (${cat.sample_count} samples)`;
+        opt2.textContent = `${cat.name} (${cat.sample_count} standards)`;
         filterSelect.appendChild(opt2);
 
         const opt3 = document.createElement('option');
@@ -301,8 +331,9 @@ function populateCategoryDropdowns() {
         filterSelect.value = currentCategory;
         predictSelect.value = currentCategory;
 
-        trainCatInput.value = currentCategory;
-        trainUnitInput.value = active.unit;
+        if (trainCatInput) trainCatInput.value = currentCategory;
+        if (trainUnitInput) trainUnitInput.value = active.unit;
+        updateTrainStatusBanner(active);
     }
 
     // Global category change
@@ -313,14 +344,21 @@ function populateCategoryDropdowns() {
 
 function onCategoryChanged(catName) {
     currentCategory = catName;
-    document.getElementById('global-category-select').value = catName;
-    document.getElementById('samples-cat-filter').value = catName;
-    document.getElementById('predict-category-select').value = catName;
+    const globalSelect = document.getElementById('global-category-select');
+    const filterSelect = document.getElementById('samples-cat-filter');
+    const predictSelect = document.getElementById('predict-category-select');
+
+    if (globalSelect) globalSelect.value = catName;
+    if (filterSelect) filterSelect.value = catName;
+    if (predictSelect) predictSelect.value = catName;
 
     const cat = categories.find(c => c.name === catName);
     if (cat) {
-        document.getElementById('train-category-input').value = cat.name;
-        document.getElementById('train-unit-input').value = cat.unit;
+        const trainCatInput = document.getElementById('train-category-input');
+        const trainUnitInput = document.getElementById('train-unit-input');
+        if (trainCatInput) trainCatInput.value = cat.name;
+        if (trainUnitInput) trainUnitInput.value = cat.unit;
+        updateTrainStatusBanner(cat);
     }
 
     loadCategorySamples(catName);
@@ -414,15 +452,25 @@ function compressImage(fileOrDataUrl, maxWidth = 800, maxHeight = 800, quality =
 // PLACE 1: TRAIN MODEL SETUP
 // =====================================================================
 function setupTrainForm() {
-    const form = document.getElementById('train-model-form');
+    const form = document.getElementById('train-form') || document.getElementById('train-model-form');
     const btnAdd = document.getElementById('btn-add-sample-row');
 
-    // Add 3 default rows for quick calibration
-    addSampleInputRow(0, "Blank / Zero");
-    addSampleInputRow(50, "Mid Standard");
-    addSampleInputRow(100, "High Standard");
+    // Add 3 default rows for quick calibration if container is empty
+    const container = document.getElementById('sample-rows-container');
+    if (container && container.children.length === 0) {
+        addSampleInputRow(0, "Blank / Zero");
+        addSampleInputRow(50, "Mid Standard");
+        addSampleInputRow(100, "High Standard");
+    }
 
-    btnAdd.onclick = () => addSampleInputRow('', '');
+    if (btnAdd) {
+        btnAdd.onclick = () => addSampleInputRow('', '');
+    }
+
+    if (!form) {
+        console.warn("Train form element not found in DOM");
+        return;
+    }
 
     form.onsubmit = async (e) => {
         e.preventDefault();
@@ -649,7 +697,7 @@ function renderCategoryGraph(data) {
     const lowestEl = document.getElementById('sp-lowest');
     const highestEl = document.getElementById('sp-highest');
     const rangeEl = document.getElementById('sp-range');
-    const countEl = document.getElementById('sp-count');
+    const countEl = document.getElementById('sp-count') || document.getElementById('samples-count-badge');
     const r2Badge = document.getElementById('sp-r2-badge') || document.getElementById('sp-r2');
 
     if (lowest && lowestEl) {
