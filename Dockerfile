@@ -31,5 +31,5 @@ RUN mkdir -p /app/model /data/model && chmod -R 777 /app /data
 # Expose Render standard port
 EXPOSE 10000
 
-# Start production WSGI server (2 workers, 4 threads - tuned for 512MB RAM & high concurrency)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 4 --timeout 120 app:app"]
+# Start production WSGI server: pre-initialize DB once in single process, then boot gunicorn with preload
+CMD ["sh", "-c", "python -c 'from app import init_db; init_db()' && gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 4 --preload --timeout 120 app:app"]

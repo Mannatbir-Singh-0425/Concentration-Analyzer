@@ -62,151 +62,151 @@ def set_cached_model(user_id, cat_name, model, scaler):
     joblib.dump(scaler, os.path.join(MODEL_DIR, f"u{user_id}_{safe_name}_scaler.pkl"))
 
 
+_DB_INITIALIZED = False
+
 def get_db():
-    """High-concurrency SQLite connection with 30s busy timeout and 64MB cache."""
-    conn = sqlite3.connect(DATABASE, timeout=30.0, check_same_thread=False)
+    """High-concurrency SQLite connection with 60s busy timeout and cache."""
+    conn = sqlite3.connect(DATABASE, timeout=60.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA busy_timeout = 30000")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA cache_size = -64000")
+    try:
+        conn.execute("PRAGMA busy_timeout = 60000")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA cache_size = -64000")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 
 def init_db():
     """Initialize database and enable Write-Ahead Logging (WAL) mode for concurrent access."""
-    conn = get_db()
-    conn.execute("PRAGMA journal_mode = WAL")
-    cursor = conn.cursor()
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED:
+        return
 
-    # 1. Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            security_question TEXT,
-            security_answer_hash TEXT,
-            recovery_key TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
+    import time
+    for attempt in range(5):
+        try:
+            conn = get_db()
+            try:
+                conn.execute("PRAGMA journal_mode = WAL")
+            except sqlite3.OperationalError:
+                pass  # Database locked by another worker or WAL already set
 
-    # Check and add security_question, security_answer_hash, recovery_key columns if missing
-    cursor.execute("PRAGMA table_info(users)")
-    user_cols = [r["name"] for r in cursor.fetchall()]
-    if "security_question" not in user_cols:
-        cursor.execute("ALTER TABLE users ADD COLUMN security_question TEXT")
-    if "security_answer_hash" not in user_cols:
-        cursor.execute("ALTER TABLE users ADD COLUMN security_answer_hash TEXT")
-    if "recovery_key" not in user_cols:
-        cursor.execute("ALTER TABLE users ADD COLUMN recovery_key TEXT")
+            cursor = conn.cursor()
 
-    # 2. Categories Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 1,
-            name TEXT NOT NULL,
-            unit TEXT NOT NULL DEFAULT 'mg/L',
-            trained INTEGER DEFAULT 0,
-            r2_score REAL DEFAULT 0.0,
-            created_at TEXT NOT NULL,
-            UNIQUE(user_id, name)
-        )
-    """)
+            # 1. Users Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    security_question TEXT,
+                    security_answer_hash TEXT,
+                    recovery_key TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """)
 
-    # 3. Training Samples Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS training_samples (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 1,
-            category_name TEXT NOT NULL,
-            sample_label TEXT,
-            concentration REAL NOT NULL,
-            image_blob BLOB NOT NULL,
-            features_json TEXT,
-            hex_color TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
+            # Check and add security_question, security_answer_hash, recovery_key columns if missing
+            for col, col_type in [("security_question", "TEXT"), ("security_answer_hash", "TEXT"), ("recovery_key", "TEXT")]:
+                try:
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass
 
-    # 4. Prediction Logs Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS prediction_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 1,
-            category_name TEXT NOT NULL,
-            sample_label TEXT,
-            predicted_concentration REAL NOT NULL,
-            unit TEXT NOT NULL,
-            hex_color TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
+            # 2. Categories Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS categories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    name TEXT NOT NULL,
+                    unit TEXT NOT NULL DEFAULT 'mg/L',
+                    trained INTEGER DEFAULT 0,
+                    r2_score REAL DEFAULT 0.0,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(user_id, name)
+                )
+            """)
 
-    # Schema migration checks if existing database had no user_id column
-    for table in ["categories", "training_samples", "prediction_logs"]:
-        cursor.execute(f"PRAGMA table_info({table})")
-        cols = [r["name"] for r in cursor.fetchall()]
-        if "user_id" not in cols:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+            # 3. Training Samples Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS training_samples (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    category_name TEXT NOT NULL,
+                    sample_label TEXT,
+                    concentration REAL NOT NULL,
+                    image_blob BLOB NOT NULL,
+                    features_json TEXT,
+                    hex_color TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """)
 
-    # Migrate categories table if it has the old global UNIQUE(name) constraint instead of UNIQUE(user_id, name)
-    cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='categories'")
-    cat_master = cursor.fetchone()
-    if cat_master and "UNIQUE(user_id, name)" not in cat_master["sql"].replace(" ", ""):
-        cursor.execute("ALTER TABLE categories RENAME TO categories_legacy")
-        cursor.execute("""
-            CREATE TABLE categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL DEFAULT 1,
-                name TEXT NOT NULL,
-                unit TEXT NOT NULL DEFAULT 'mg/L',
-                trained INTEGER DEFAULT 0,
-                r2_score REAL DEFAULT 0.0,
-                created_at TEXT NOT NULL,
-                UNIQUE(user_id, name)
-            )
-        """)
-        cursor.execute("""
-            INSERT OR IGNORE INTO categories (id, user_id, name, unit, trained, r2_score, created_at)
-            SELECT id, user_id, name, unit, trained, r2_score, created_at FROM categories_legacy
-        """)
-        cursor.execute("DROP TABLE categories_legacy")
+            # 4. Prediction Logs Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS prediction_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    category_name TEXT NOT NULL,
+                    sample_label TEXT,
+                    predicted_concentration REAL NOT NULL,
+                    unit TEXT NOT NULL,
+                    hex_color TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """)
 
-    # Create default demo user if no users exist, or update demo recovery info
-    cursor.execute("SELECT id, security_question, recovery_key FROM users WHERE username = 'demo'")
-    demo_user = cursor.fetchone()
-    demo_sec_q = "What is the primary analyte for the starter assay?"
-    demo_sec_a = generate_password_hash("protein")
-    demo_rec_key = "QUANT-DEMO-2026-PASS"
-    if not demo_user:
-        hashed = generate_password_hash("demo123")
-        cursor.execute("""
-            INSERT INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, ("demo", hashed, demo_sec_q, demo_sec_a, demo_rec_key, datetime.now().isoformat()))
-        demo_user_id = cursor.lastrowid
-        seed_starter_categories_for_user(demo_user_id, cursor)
-    else:
-        # Ensure demo user has recovery credentials populated
-        cursor.execute("""
-            UPDATE users SET security_question = COALESCE(security_question, ?),
-                             security_answer_hash = COALESCE(security_answer_hash, ?),
-                             recovery_key = COALESCE(recovery_key, ?)
-            WHERE username = 'demo'
-        """, (demo_sec_q, demo_sec_a, demo_rec_key))
+            # Schema migration checks if existing database had no user_id column
+            for table in ["categories", "training_samples", "prediction_logs"]:
+                try:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1")
+                except sqlite3.OperationalError:
+                    pass
 
-    # Ensure all existing users have a recovery_key if missing
-    cursor.execute("SELECT id, username FROM users WHERE recovery_key IS NULL OR recovery_key = ''")
-    users_missing_key = cursor.fetchall()
-    for u in users_missing_key:
-        import secrets
-        gen_key = f"QUANT-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}"
-        cursor.execute("UPDATE users SET recovery_key = ? WHERE id = ?", (gen_key, u["id"]))
+            # Create default demo user if no users exist, or update demo recovery info
+            cursor.execute("SELECT id, security_question, recovery_key FROM users WHERE username = 'demo'")
+            demo_user = cursor.fetchone()
+            demo_sec_q = "What is the primary analyte for the starter assay?"
+            demo_sec_a = generate_password_hash("protein")
+            demo_rec_key = "QUANT-DEMO-2026-PASS"
+            if not demo_user:
+                hashed = generate_password_hash("demo123")
+                cursor.execute("""
+                    INSERT OR IGNORE INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, ("demo", hashed, demo_sec_q, demo_sec_a, demo_rec_key, datetime.now().isoformat()))
+                demo_user_id = cursor.lastrowid
+                if demo_user_id:
+                    seed_starter_categories_for_user(demo_user_id, cursor)
+            else:
+                # Ensure demo user has recovery credentials populated
+                cursor.execute("""
+                    UPDATE users SET security_question = COALESCE(security_question, ?),
+                                     security_answer_hash = COALESCE(security_answer_hash, ?),
+                                     recovery_key = COALESCE(recovery_key, ?)
+                    WHERE username = 'demo'
+                """, (demo_sec_q, demo_sec_a, demo_rec_key))
 
-    conn.commit()
-    conn.close()
+            # Ensure all existing users have a recovery_key if missing
+            cursor.execute("SELECT id, username FROM users WHERE recovery_key IS NULL OR recovery_key = ''")
+            users_missing_key = cursor.fetchall()
+            for u in users_missing_key:
+                import secrets
+                gen_key = f"QUANT-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}-{secrets.token_hex(2).upper()}"
+                cursor.execute("UPDATE users SET recovery_key = ? WHERE id = ?", (gen_key, u["id"]))
+
+            conn.commit()
+            conn.close()
+            _DB_INITIALIZED = True
+            break
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower() and attempt < 4:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            else:
+                _DB_INITIALIZED = True
+                break
 
 
 def extract_color_features(img_bgr):

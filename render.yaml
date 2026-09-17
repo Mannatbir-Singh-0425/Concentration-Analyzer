@@ -14,5 +14,3 @@ services:
         value: database.db
       - key: MODEL_DIR
         value: model
-      - key: PORT
-        value: 10000
