@@ -616,14 +616,52 @@
         // =====================================================================
         // ALERTS HELPER
         // =====================================================================
-        function showAlert(msg, isSuccess = false) {
+        // =====================================================================
+        // ALERTS HELPER & SMART SWITCHERS
+        // =====================================================================
+        function showAlert(msg, isSuccess = false, actionBtnHtml = '') {
             authAlert.className = `auth-alert ${isSuccess ? 'success' : 'error'}`;
-            alertMessage.textContent = msg;
+            alertMessage.innerHTML = msg + (actionBtnHtml ? `<div style="margin-top: 8px;">${actionBtnHtml}</div>` : '');
             authAlert.classList.remove('hidden');
         }
 
         function hideAlert() {
             authAlert.classList.add('hidden');
+            alertMessage.innerHTML = '';
+        }
+
+        window.switchToSignIn = function(user = '') {
+            setMode('login');
+            if (user) usernameInput.value = user;
+            passwordInput.focus();
+        };
+
+        window.switchToRegister = function(user = '') {
+            setMode('register');
+            if (user) usernameInput.value = user;
+            passwordInput.focus();
+        };
+
+        // =====================================================================
+        // AUTO-LOGIN ON PAGE LOAD (PERSISTENT SESSION RESTORATION)
+        // =====================================================================
+        const savedUser = localStorage.getItem('quantlab_username');
+        const savedToken = localStorage.getItem('quantlab_token');
+        if (savedUser && savedToken) {
+            fetch('/api/auto_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: savedUser, token: savedToken })
+            }).then(res => res.json()).then(data => {
+                if (data.authenticated) {
+                    window.location.href = '/';
+                }
+            }).catch(() => {});
+        }
+
+        const lastUser = localStorage.getItem('quantlab_last_username');
+        if (lastUser && usernameInput && !usernameInput.value) {
+            usernameInput.value = lastUser;
         }
 
         // =====================================================================
@@ -669,16 +707,29 @@
                     const data = await res.json();
 
                     if (!res.ok) {
-                        showAlert(data.error || 'Authentication failed. Please check your credentials.');
+                        let actionBtn = '';
+                        if (data.not_found) {
+                            actionBtn = `<button type="button" class="btn btn-primary btn-xs" onclick="switchToRegister('${username}')">Create Account for '${username}' &rarr;</button>`;
+                        } else if (data.invalid_password) {
+                            actionBtn = `<button type="button" class="btn btn-outline btn-xs" onclick="setMode('recovery')">Forgot Password? Reset Here &rarr;</button>`;
+                        }
+                        showAlert(data.error || 'Authentication failed. Please check your credentials.', false, actionBtn);
                         submitBtn.disabled = false;
                         submitText.textContent = origText;
                         return;
                     }
 
+                    // Save persistent token so user NEVER has to create account or sign in again
+                    if (data.token) {
+                        localStorage.setItem('quantlab_token', data.token);
+                        localStorage.setItem('quantlab_username', username);
+                    }
+                    localStorage.setItem('quantlab_last_username', username);
+
                     showAlert(data.message || 'Login successful! Loading workspace...', true);
                     setTimeout(() => {
                         window.location.href = '/';
-                    }, 400);
+                    }, 350);
 
                 } catch (err) {
                     showAlert('Network error: Unable to reach server. Please check connection.');
@@ -690,7 +741,7 @@
                 // CREATE ACCOUNT
                 const confirmPassword = confirmPasswordInput.value.trim();
                 if (password !== confirmPassword) {
-                    showAlert('Passwords do not match. Please verify your password.');
+                    showAlert('Passwords do not match. Please verify your password confirmation.');
                     confirmPasswordInput.focus();
                     return;
                 }
@@ -703,7 +754,7 @@
 
                 submitBtn.disabled = true;
                 const origText = submitText.textContent;
-                submitText.textContent = 'Creating Account...';
+                submitText.textContent = 'Setting up Account...';
 
                 try {
                     const res = await fetch('/api/register', {
@@ -719,9 +770,29 @@
                     const data = await res.json();
 
                     if (!res.ok) {
-                        showAlert(data.error || 'Registration failed. Please try a different username.');
+                        let actionBtn = '';
+                        if (data.account_exists) {
+                            actionBtn = `<button type="button" class="btn btn-primary btn-xs" onclick="switchToSignIn('${username}')">Switch to Sign In &rarr;</button>`;
+                        }
+                        showAlert(data.error || 'Registration failed. Please try again.', false, actionBtn);
                         submitBtn.disabled = false;
                         submitText.textContent = origText;
+                        return;
+                    }
+
+                    // Save persistent token
+                    if (data.token) {
+                        localStorage.setItem('quantlab_token', data.token);
+                        localStorage.setItem('quantlab_username', username);
+                    }
+                    localStorage.setItem('quantlab_last_username', username);
+
+                    // If account already existed and password matched, smooth direct login!
+                    if (data.auto_signed_in) {
+                        showAlert(data.message || 'Welcome back! Logged in directly.', true);
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 400);
                         return;
                     }
 
@@ -733,15 +804,15 @@
                         submitText.textContent = 'Loading Workspace...';
                         setTimeout(() => {
                             window.location.href = '/';
-                        }, 2500);
+                        }, 2000);
                     } else {
                         setTimeout(() => {
                             window.location.href = '/';
-                        }, 600);
+                        }, 500);
                     }
 
                 } catch (err) {
-                    showAlert('Network error during registration. Please try again.');
+                    showAlert('Network error during registration. Please check connection and try again.');
                     submitBtn.disabled = false;
                     submitText.textContent = origText;
                 }
@@ -772,6 +843,12 @@
                     demoBtn.querySelector('span').textContent = '⚡ 1-Click Demo Login (demo / demo123)';
                     return;
                 }
+
+                if (data.token) {
+                    localStorage.setItem('quantlab_token', data.token);
+                    localStorage.setItem('quantlab_username', 'demo');
+                }
+                localStorage.setItem('quantlab_last_username', 'demo');
 
                 showAlert('Demo login success! Launching lab...', true);
                 setTimeout(() => {

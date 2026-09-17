@@ -47,66 +47,14 @@ if ('serviceWorker' in navigator) {
 
 let deferredPrompt = null;
 function setupPwaInstall() {
-    const getAppBtn = document.getElementById('btn-get-app');
-    const getAppModal = document.getElementById('get-app-modal');
-    const btnCloseGetAppModal = document.getElementById('btn-close-get-app-modal');
-    const btnDoneGetApp = document.getElementById('btn-done-get-app');
-    const btnInstantInstall = document.getElementById('btn-trigger-instant-install');
-    const instantInstallContainer = document.getElementById('instant-install-container');
-
+    // Background PWA support without visible in-app button
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        if (instantInstallContainer) instantInstallContainer.classList.remove('hidden');
-    });
-
-    function openGetAppModal() {
-        if (getAppModal) getAppModal.classList.remove('hidden');
-        if (deferredPrompt && instantInstallContainer) {
-            instantInstallContainer.classList.remove('hidden');
-        }
-        if (window.lucide) window.lucide.createIcons();
-    }
-
-    function closeGetAppModal() {
-        if (getAppModal) getAppModal.classList.add('hidden');
-    }
-
-    if (getAppBtn) getAppBtn.addEventListener('click', openGetAppModal);
-    if (btnCloseGetAppModal) btnCloseGetAppModal.addEventListener('click', closeGetAppModal);
-    if (btnDoneGetApp) btnDoneGetApp.addEventListener('click', closeGetAppModal);
-
-    if (btnInstantInstall) {
-        btnInstantInstall.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log('[PWA] User choice:', outcome);
-                deferredPrompt = null;
-                closeGetAppModal();
-            } else {
-                alert("Please follow the instructions for your device below to install Concentration Analyzer to your home screen or desktop.");
-            }
-        });
-    }
-
-    // Platform Tab Switching in Get App Modal
-    document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const platform = btn.getAttribute('data-platform');
-            document.querySelectorAll('#get-app-modal .platform-tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('#get-app-modal .platform-guide-content').forEach(g => g.classList.remove('active'));
-
-            btn.classList.add('active');
-            const targetGuide = document.getElementById(`guide-${platform}`);
-            if (targetGuide) targetGuide.classList.add('active');
-            if (window.lucide) window.lucide.createIcons();
-        });
     });
 
     window.addEventListener('appinstalled', () => {
         console.log('[PWA] App installed successfully');
-        if (instantInstallContainer) instantInstallContainer.classList.add('hidden');
     });
 }
 
@@ -116,16 +64,37 @@ function setupPwaInstall() {
 async function checkAuthStatus() {
     try {
         const res = await fetch('/api/me');
-        if (!res.ok) {
-            window.location.href = '/login';
-            return false;
+        if (res.ok) {
+            const data = await res.json();
+            const userEl = document.getElementById('header-username');
+            if (userEl && data.user) {
+                userEl.textContent = data.user.username;
+            }
+            return true;
         }
-        const data = await res.json();
-        const userEl = document.getElementById('header-username');
-        if (userEl && data.user) {
-            userEl.textContent = data.user.username;
+
+        // If cookie was cleared/dropped, attempt seamless auto-login via localStorage token
+        const savedUser = localStorage.getItem('quantlab_username');
+        const savedToken = localStorage.getItem('quantlab_token');
+        if (savedUser && savedToken) {
+            const autoRes = await fetch('/api/auto_login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: savedUser, token: savedToken })
+            });
+
+            if (autoRes.ok) {
+                const autoData = await autoRes.json();
+                const userEl = document.getElementById('header-username');
+                if (userEl && autoData.user) {
+                    userEl.textContent = autoData.user.username;
+                }
+                return true;
+            }
         }
-        return true;
+
+        window.location.href = '/login';
+        return false;
     } catch (e) {
         console.error("Auth check failed:", e);
         window.location.href = '/login';
@@ -138,6 +107,9 @@ function setupAuthControls() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             try {
+                // Clear persistent remember tokens
+                localStorage.removeItem('quantlab_token');
+                localStorage.removeItem('quantlab_username');
                 await fetch('/api/logout', { method: 'POST' });
             } catch (e) {
                 console.error("Logout error:", e);

@@ -11,7 +11,8 @@ import os
 import sqlite3
 import json
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
 import numpy as np
 import cv2
 from sklearn.linear_model import Ridge
@@ -25,12 +26,13 @@ CORS(app)
 DATABASE = os.environ.get("DATABASE_PATH", "database.db")
 MODEL_DIR = os.environ.get("MODEL_DIR", "model")
 
-# Strict Session & Cookie Privacy Configuration
+# Persistent 90-Day Session & Cookie Configuration (Ensures user stays logged in across app restarts)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=False,
-    PERMANENT_SESSION_LIFETIME=86400
+    PERMANENT_SESSION_LIFETIME=timedelta(days=90),
+    SESSION_REFRESH_EACH_REQUEST=True
 )
 
 
@@ -125,8 +127,8 @@ def init_db():
                 )
             """)
 
-            # Check and add security_question, security_answer_hash, recovery_key columns if missing
-            for col, col_type in [("security_question", "TEXT"), ("security_answer_hash", "TEXT"), ("recovery_key", "TEXT")]:
+            # Check and add security_question, security_answer_hash, recovery_key, remember_token columns if missing
+            for col, col_type in [("security_question", "TEXT"), ("security_answer_hash", "TEXT"), ("recovery_key", "TEXT"), ("remember_token", "TEXT")]:
                 try:
                     cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
                 except sqlite3.OperationalError:
@@ -359,7 +361,7 @@ def generate_recovery_key():
 
 @app.route("/api/register", methods=["POST"])
 def register():
-    """Register a new user and isolate their data."""
+    """Register a new user or smoothly sign in if already registered with matching credentials."""
     data = request.get_json() or {}
     username = data.get("username", "").strip().lower()
     password = data.get("password", "").strip()
@@ -377,31 +379,58 @@ def register():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-    if cursor.fetchone():
-        conn.close()
-        return jsonify({"error": f"Username '{username}' is already taken. Please choose another."}), 400
+    cursor.execute("SELECT id, username, password_hash, recovery_key FROM users WHERE username = ?", (username,))
+    existing_user = cursor.fetchone()
+
+    if existing_user:
+        # If user entered correct password, smoothly log them in!
+        if check_password_hash(existing_user["password_hash"], password):
+            token = secrets.token_urlsafe(32)
+            cursor.execute("UPDATE users SET remember_token = ? WHERE id = ?", (token, existing_user["id"]))
+            conn.commit()
+            conn.close()
+
+            session.permanent = True
+            session["user_id"] = existing_user["id"]
+            session["username"] = existing_user["username"]
+
+            return jsonify({
+                "message": f"Welcome back, {existing_user['username']}! You already have an account — signed you in directly.",
+                "user": {"id": existing_user["id"], "username": existing_user["username"]},
+                "recovery_key": existing_user["recovery_key"],
+                "token": token,
+                "auto_signed_in": True
+            })
+        else:
+            conn.close()
+            return jsonify({
+                "error": f"Account '{username}' already exists. Switch to Sign In to enter your password, or use Forgot Password to reset it.",
+                "account_exists": True
+            }), 400
 
     hashed_pw = generate_password_hash(password)
     hashed_answer = generate_password_hash(security_answer) if security_answer else None
     recovery_key = generate_recovery_key()
+    token = secrets.token_urlsafe(32)
 
     cursor.execute("""
-        INSERT INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (username, hashed_pw, security_question or None, hashed_answer, recovery_key, datetime.now().isoformat()))
+        INSERT INTO users (username, password_hash, security_question, security_answer_hash, recovery_key, remember_token, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (username, hashed_pw, security_question or None, hashed_answer, recovery_key, token, datetime.now().isoformat()))
     new_user_id = cursor.lastrowid
 
     conn.commit()
     conn.close()
 
+    session.permanent = True
     session["user_id"] = new_user_id
     session["username"] = username
 
     return jsonify({
-        "message": "Registration successful!",
+        "message": "Registration successful! Welcome to your private workspace.",
         "user": {"id": new_user_id, "username": username},
-        "recovery_key": recovery_key
+        "recovery_key": recovery_key,
+        "token": token
     })
 
 
@@ -476,24 +505,28 @@ def recover_reset():
 
     new_recovery_key = generate_recovery_key()
     new_hashed_pw = generate_password_hash(new_password)
-    cursor.execute("UPDATE users SET password_hash = ?, recovery_key = ? WHERE id = ?",
-                   (new_hashed_pw, new_recovery_key, user["id"]))
+    token = secrets.token_urlsafe(32)
+
+    cursor.execute("UPDATE users SET password_hash = ?, recovery_key = ?, remember_token = ? WHERE id = ?",
+                   (new_hashed_pw, new_recovery_key, token, user["id"]))
     conn.commit()
     conn.close()
 
+    session.permanent = True
     session["user_id"] = user["id"]
     session["username"] = user["username"]
 
     return jsonify({
         "message": f"Password reset successfully! Logged in as {user['username']}.",
         "user": {"id": user["id"], "username": user["username"]},
-        "new_recovery_key": new_recovery_key
+        "new_recovery_key": new_recovery_key,
+        "token": token
     })
 
 
 @app.route("/api/login", methods=["POST"])
 def login():
-    """Authenticate existing user."""
+    """Authenticate existing user with clear feedback and persistent token."""
     data = request.get_json() or {}
     username = data.get("username", "").strip().lower()
     password = data.get("password", "").strip()
@@ -505,23 +538,79 @@ def login():
     cursor = conn.cursor()
     cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
     user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({
+            "error": f"No account found with username '{username}'. Would you like to create this account?",
+            "not_found": True
+        }), 401
+
+    if not check_password_hash(user["password_hash"], password):
+        conn.close()
+        return jsonify({
+            "error": "Incorrect password. Please verify your password or click 'Forgot Password' to recover.",
+            "invalid_password": True
+        }), 401
+
+    token = secrets.token_urlsafe(32)
+    cursor.execute("UPDATE users SET remember_token = ? WHERE id = ?", (token, user["id"]))
+    conn.commit()
     conn.close()
 
-    if not user or not check_password_hash(user["password_hash"], password):
-        return jsonify({"error": "Invalid username or password"}), 401
-
+    session.permanent = True
     session["user_id"] = user["id"]
     session["username"] = user["username"]
 
     return jsonify({
         "message": f"Welcome back, {user['username']}!",
+        "user": {"id": user["id"], "username": user["username"]},
+        "token": token
+    })
+
+
+@app.route("/api/auto_login", methods=["POST"])
+def auto_login():
+    """Auto-login using persistent client remember token (survives app reloads and cookie drops)."""
+    data = request.get_json() or {}
+    username = data.get("username", "").strip().lower()
+    token = data.get("token", "").strip()
+
+    if not username or not token:
+        return jsonify({"authenticated": False, "error": "Missing credentials"}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, remember_token FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user or not user["remember_token"] or user["remember_token"] != token:
+        return jsonify({"authenticated": False, "error": "Invalid or expired session"}), 401
+
+    session.permanent = True
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+
+    return jsonify({
+        "authenticated": True,
+        "message": f"Session restored for {user['username']}",
         "user": {"id": user["id"], "username": user["username"]}
     })
 
 
 @app.route("/api/logout", methods=["POST", "GET"])
 def logout():
-    """Clear session, purge memory cache, and delete session cookie."""
+    """Clear session, purge memory cache, clear remember token, and delete session cookie."""
+    if "user_id" in session:
+        try:
+            conn = get_db()
+            conn.execute("UPDATE users SET remember_token = NULL WHERE id = ?", (session["user_id"],))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
     session.clear()
     if request.path == "/api/logout" and request.method == "POST":
         resp = jsonify({"message": "Logged out successfully"})
@@ -529,6 +618,7 @@ def logout():
         resp = redirect(url_for("login_page"))
     resp.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
     return resp
+
 
 
 @app.route("/api/me", methods=["GET"])

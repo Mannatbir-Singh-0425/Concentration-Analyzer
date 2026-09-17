@@ -14,9 +14,9 @@ ENV/
 env.bak/
 venv.bak/
 
-# Database & Local models
-*.db
-database.db
+# Database & Local models (database.db is tracked for deployment data retention)
+# *.db
+# database.db
 model/*.pkl
 model/*.joblib
 
